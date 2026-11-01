@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends(auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.teacher')
 @section('content')
 @php($statusLabels = ['draft' => ['Nháp', 'secondary'], 'public' => ['Công khai', 'success'], 'archived' => ['Lưu trữ', 'dark']])
 <x-page-header eyebrow="KHÓA HỌC" title="Danh sách khóa học" description="Tạo, chỉnh sửa khóa học và quản lý học viên tham gia.">

@@ -77,6 +77,10 @@ class CourseController extends Controller
     {
         return [
             'course' => $course,
+            'layout' => auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.teacher',
+            'coverImageUrl' => $course->cover_image
+                ? Storage::disk('public')->url($course->cover_image)
+                : null,
             'subjects' => Subject::orderBy('name')->get(),
             'teachers' => auth()->user()->hasRole('admin')
                 ? User::whereRelation('role', 'name', 'teacher')->orderBy('name')->get()

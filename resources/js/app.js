@@ -35,3 +35,29 @@ document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
 
 const savedTheme = localStorage.getItem('learnmate-theme');
 if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
+const studentSearch = document.querySelector('[data-student-search]');
+if (studentSearch) {
+    const options = [...document.querySelectorAll('[data-student-option]')];
+    const checkboxes = [...document.querySelectorAll('[data-student-checkbox]')];
+    const count = document.querySelector('[data-selected-count]');
+    const submit = document.querySelector('[data-add-students]');
+    const empty = document.querySelector('[data-no-student-result]');
+    const update = () => {
+        const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
+        count.textContent = `${selected} đã chọn`;
+        submit.disabled = selected === 0;
+    };
+    studentSearch.addEventListener('input', () => {
+        const query = studentSearch.value.trim().toLowerCase();
+        let visible = 0;
+        options.forEach((option) => {
+            const matches = option.dataset.search.includes(query);
+            option.hidden = !matches;
+            if (matches) visible += 1;
+        });
+        empty.hidden = visible > 0;
+    });
+    checkboxes.forEach((checkbox) => checkbox.addEventListener('change', update));
+    update();
+}

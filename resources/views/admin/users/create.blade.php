@@ -1,5 +1,99 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 @section('content')
-<x-page-header eyebrow="QUẢN TRỊ / TÀI KHOẢN" title="Cấp tài khoản mới" description="Tạo thông tin đăng nhập và phân quyền cho một thành viên." />
-<div class="row"><div class="col-xl-8"><x-card class="p-4 p-md-5"><form method="POST" action="{{ route('admin.users.store') }}">@csrf<div class="row"><div class="col-md-6"><x-form.input name="name" label="Họ và tên" placeholder="Nguyễn Văn A" required /></div><div class="col-md-6"><x-form.input name="username" label="Tên đăng nhập" placeholder="nguyenvana" help="Chỉ dùng chữ, số, gạch ngang hoặc gạch dưới." required /></div><div class="col-md-6"><x-form.input name="email" label="Email" type="email" placeholder="email@truong.edu.vn" required /></div><div class="col-md-6"><div class="mb-3"><label for="role_id" class="form-label">Vai trò <span class="text-accent">*</span></label><select name="role_id" id="role_id" class="form-select @error('role_id') is-invalid @enderror" required><option value="">Chọn vai trò</option>@foreach($roles as $role)<option value="{{ $role->id }}" @selected(old('role_id') == $role->id)>{{ $role->display_name }}</option>@endforeach</select>@error('role_id')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror</div></div><div class="col-md-6"><x-form.input name="password" label="Mật khẩu tạm thời" type="password" placeholder="Tối thiểu 8 ký tự" required /></div><div class="col-md-6"><x-form.input name="password_confirmation" label="Xác nhận mật khẩu" type="password" required /></div><div class="col-md-6"><div class="mb-3"><label for="status" class="form-label">Trạng thái</label><select name="status" id="status" class="form-select"><option value="active" @selected(old('status', 'active') === 'active')>Đang hoạt động</option><option value="locked" @selected(old('status') === 'locked')>Khóa tài khoản</option></select></div></div></div><div class="border-top pt-4 mt-2 d-flex gap-2"><x-button>Cấp tài khoản</x-button><x-button :href="route('admin.users.index')" variant="outline-primary">Hủy</x-button></div></form></x-card></div><div class="col-xl-4 mt-4 mt-xl-0"><x-card class="p-4"><i class="bi bi-info-circle fs-3 text-brand" aria-hidden="true"></i><h2 class="h5 mt-3">Lưu ý cho quản trị viên</h2><p class="small lm-text-muted mb-0">Tài khoản được cấp sẽ đăng nhập bằng username hoặc email. Người dùng có thể đổi mật khẩu sau lần đăng nhập đầu tiên.</p></x-card></div></div>
+<x-page-header
+    eyebrow="QUẢN TRỊ / TÀI KHOẢN"
+    title="Cấp tài khoản mới"
+    description="Tạo thông tin đăng nhập và phân quyền cho một thành viên."
+/>
+
+<div class="row">
+    <div class="col-xl-8">
+        <x-card class="p-4 p-md-5">
+            <form method="POST" action="{{ route('admin.users.store') }}">
+                @csrf
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <x-form.input name="name" label="Họ và tên" placeholder="Nguyễn Văn A" required />
+                    </div>
+                    <div class="col-md-6">
+                        <x-form.input
+                            name="username"
+                            label="Tên đăng nhập"
+                            placeholder="nguyenvana"
+                            help="Chỉ dùng chữ, số, gạch ngang hoặc gạch dưới."
+                            required
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <x-form.input name="email" label="Email" type="email" placeholder="email@truong.edu.vn" required />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="role_id" class="form-label">
+                                Vai trò <span class="text-accent" aria-hidden="true">*</span>
+                            </label>
+                            <select name="role_id" id="role_id" class="form-select @error('role_id') is-invalid @enderror" required>
+                                <option value="">Chọn vai trò</option>
+                                @foreach ($roles as $role)
+                                    <option value="{{ $role->id }}" @selected(old('role_id') == $role->id)>
+                                        {{ $role->display_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('role_id')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <x-form.input
+                            name="password"
+                            label="Mật khẩu tạm thời"
+                            type="password"
+                            placeholder="Tối thiểu 8 ký tự"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <x-form.input
+                            name="password_confirmation"
+                            label="Xác nhận mật khẩu"
+                            type="password"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Trạng thái</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="active" @selected(old('status', 'active') === 'active')>
+                                    Đang hoạt động
+                                </option>
+                                <option value="locked" @selected(old('status') === 'locked')>
+                                    Khóa tài khoản
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-top pt-4 mt-2 d-flex gap-2">
+                    <x-button>Cấp tài khoản</x-button>
+                    <x-button :href="route('admin.users.index')" variant="outline-primary">Hủy</x-button>
+                </div>
+            </form>
+        </x-card>
+    </div>
+
+    <div class="col-xl-4 mt-4 mt-xl-0">
+        <x-card class="p-4">
+            <i class="bi bi-info-circle fs-3 text-brand" aria-hidden="true"></i>
+            <h2 class="h5 mt-3">Lưu ý cho quản trị viên</h2>
+            <p class="small lm-text-muted mb-0">
+                Tài khoản được cấp sẽ đăng nhập bằng username hoặc email. Người dùng có thể đổi mật khẩu sau lần đăng nhập đầu tiên.
+            </p>
+        </x-card>
+    </div>
+</div>
 @endsection

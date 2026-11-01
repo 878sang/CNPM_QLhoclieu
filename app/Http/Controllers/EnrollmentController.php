@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class EnrollmentController extends Controller
@@ -28,9 +29,15 @@ class EnrollmentController extends Controller
 
     public function store(StoreEnrollmentRequest $request, Course $course): RedirectResponse
     {
-        $course->enrollments()->create([...$request->validated(), 'status' => 'active']);
+        DB::transaction(function () use ($request, $course): void {
+            foreach ($request->validated('user_id') as $userId) {
+                $course->enrollments()->create(['user_id' => $userId, 'status' => 'active']);
+            }
+        });
 
-        return redirect()->route('courses.students.index', $course)->with('status', 'Đã thêm học viên vào khóa học.');
+        $count = count($request->validated('user_id'));
+
+        return redirect()->route('courses.students.index', $course)->with('status', "Đã thêm {$count} học viên vào khóa học.");
     }
 
     public function destroy(Course $course, Enrollment $enrollment): RedirectResponse
