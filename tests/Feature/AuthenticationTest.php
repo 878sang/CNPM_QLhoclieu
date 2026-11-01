@@ -81,6 +81,26 @@ class AuthenticationTest extends TestCase
         $this->assertFalse($student->can('viewAny', User::class));
     }
 
+    public function test_admin_can_open_dashboard_and_create_an_account(): void
+    {
+        $adminRole = Role::create(['name' => 'admin', 'display_name' => 'Quản trị viên']);
+        $teacherRole = Role::create(['name' => 'teacher', 'display_name' => 'Giảng viên']);
+        $admin = User::factory()->create(['role_id' => $adminRole->id]);
+
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
+        $this->actingAs($admin)->post(route('admin.users.store'), [
+            'name' => 'Giảng viên mới',
+            'username' => 'giangvienmoi',
+            'email' => 'moi@example.com',
+            'role_id' => $teacherRole->id,
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'status' => 'active',
+        ])->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseHas('users', ['username' => 'giangvienmoi', 'role_id' => $teacherRole->id]);
+    }
+
     public function test_authenticated_user_can_change_password(): void
     {
         $u = $this->user();

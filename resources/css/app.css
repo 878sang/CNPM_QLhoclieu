@@ -22,6 +22,8 @@ a { color: var(--brand); } a:hover { color: var(--accent); }
 .form-control, .form-select { min-height: 44px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .form-control:focus, .form-select:focus { color: var(--ink); background: var(--surface); border-color: var(--focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 25%, transparent); }
 .form-label { color: var(--ink); font-weight: 600; font-size: .875rem; }
+.table { --bs-table-bg: transparent; --bs-table-color: var(--ink); --bs-table-border-color: var(--line); }
+.dropdown-menu { color: var(--ink); background: var(--surface); border-color: var(--line); border-radius: var(--radius-sm); }
 .alert { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); } .alert-danger { border-left-color: var(--danger); } .alert-success { border-left-color: var(--success); }
 .badge { border-radius: 999px; font-weight: 600; }
 .lm-brand { color: var(--brand); letter-spacing: -.035em; } .lm-brand:hover { color: var(--accent); }

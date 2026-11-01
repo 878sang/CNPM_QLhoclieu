@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,7 +18,12 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/dang-xuat', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', fn () => view('dashboard'))->name('dashboard');
-    Route::get('/quan-tri', fn () => view('placeholder', ['title' => 'Trang quản trị']))->middleware('role:admin')->name('admin.dashboard');
+    Route::middleware('role:admin')->prefix('quan-tri')->name('admin.')->group(function () {
+        Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/tai-khoan', [AdminController::class, 'users'])->name('users.index');
+        Route::get('/tai-khoan/tao-moi', [AdminController::class, 'createUser'])->name('users.create');
+        Route::post('/tai-khoan', [AdminController::class, 'storeUser'])->name('users.store');
+    });
     Route::get('/quan-ly-khoa-hoc', fn () => view('placeholder', ['title' => 'Quản lý khóa học']))->middleware('role:teacher')->name('teacher.dashboard');
     Route::get('/khu-vuc-hoc-vien', fn () => view('placeholder', ['title' => 'Khu vực học viên']))->middleware('role:student')->name('student.dashboard');
     Route::get('/doi-mat-khau', [AuthController::class, 'editPassword'])->name('password.edit');
