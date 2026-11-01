@@ -73,6 +73,6 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $users->links() }}</div>
+    <div class="mt-4">{{ $users->links('pagination::bootstrap-5') }}</div>
 </x-card>
 @endsection
