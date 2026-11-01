@@ -23,7 +23,7 @@
                         <tr>
                             <td class="fw-semibold">{{ $student->name }}</td>
                             <td>{{ $student->email }}</td>
-                            <td>{{ $student->teacher_course_count }}</td>
+                            <td>{{ $student->teacher_course_names }}</td>
                             <td><x-badge tone="success">Đang hoạt động</x-badge></td>
                         </tr>
                     @empty

@@ -22,6 +22,14 @@ class TeacherController extends Controller
                     ->filter(fn ($enrollment) => $enrollment->course?->teacher_id === auth()->id())
                     ->count(),
             );
+            $student->setAttribute(
+                'teacher_course_names',
+                $student->enrollments
+                    ->filter(fn ($enrollment) => $enrollment->course?->teacher_id === auth()->id())
+                    ->pluck('course.title')
+                    ->filter()
+                    ->implode(', '),
+            );
 
             return $student;
         });

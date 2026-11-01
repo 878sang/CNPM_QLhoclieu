@@ -11,14 +11,22 @@
 <div class="offcanvas offcanvas-end lm-add-students-sidebar" tabindex="-1" id="addStudentsSidebar" aria-labelledby="addStudentsSidebarLabel">
     <div class="offcanvas-header border-bottom">
         <div><div class="font-mono text-accent small text-uppercase">QUẢN LÝ LỚP</div><h2 class="h4 mb-0" id="addStudentsSidebarLabel">Thêm học viên</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-primary btn-sm" type="submit" form="addStudentsForm" data-add-students>Thêm đã chọn</button>
+            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-dismiss="offcanvas">Hủy</button>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Đóng"></button>
+        <label for="student-search" class="visually-hidden">Tìm học viên</label>
+        <div class="input-group mb-3">
+            <span class="input-group-text bg-surface border-paper">
+                <i class="bi bi-search" aria-hidden="true"></i>
+            </span>
+            <input id="student-search" class="form-control" type="search" placeholder="Tìm tên hoặc email..." data-student-search>
+        </div>
     </div>
-    <form method="POST" action="{{ route('courses.students.store', $course) }}" class="d-flex flex-column h-100">
+    <form id="addStudentsForm" method="POST" action="{{ route('courses.students.store', $course) }}" class="d-flex flex-column h-100">
         @csrf
         <div class="offcanvas-body">
-            <p class="small text-muted">Tìm kiếm theo tên hoặc email, sau đó chọn một hoặc nhiều học viên.</p>
-            <label for="student-search" class="visually-hidden">Tìm học viên</label>
-            <div class="input-group mb-3"><span class="input-group-text bg-surface border-paper"><i class="bi bi-search" aria-hidden="true"></i></span><input id="student-search" class="form-control" type="search" placeholder="Tìm tên hoặc email..." data-student-search></div>
             <div class="d-flex justify-content-between align-items-center mb-2"><span class="small fw-semibold">Học viên khả dụng</span><span class="badge text-bg-secondary" data-selected-count>0 đã chọn</span></div>
             <div class="d-grid gap-2" data-student-list>
                 @forelse($availableStudents as $student)
@@ -33,7 +41,6 @@
             <div class="small text-muted mt-3" data-no-student-result hidden>Không tìm thấy học viên phù hợp.</div>
             @if($errors->has('user_id') || $errors->has('user_id.*'))<div class="invalid-feedback d-block">{{ $errors->first('user_id') ?: $errors->first('user_id.*') }}</div>@endif
         </div>
-        <div class="offcanvas-footer border-top p-3 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit" data-add-students disabled>Thêm đã chọn</button><button class="btn btn-outline-primary" type="button" data-bs-dismiss="offcanvas">Hủy</button></div>
     </form>
 </div>
 <x-card class="p-3 p-md-4">

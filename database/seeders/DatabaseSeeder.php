@@ -33,6 +33,15 @@ class DatabaseSeeder extends Seeder
         $teacher = $make('teacher', 'giangvien', 'teacher@example.com', 'Giảng viên mẫu');
         $make('student', 'hocvien1', 'student1@example.com', 'Học viên Một');
         $make('student', 'hocvien2', 'student2@example.com', 'Học viên Hai');
+        for ($i = 3; $i <= 20; $i++) {
+            $make(
+                'student',
+                "hocvien{$i}",
+                "student{$i}@example.com",
+                "Hoc vien {$i}",
+            );
+        }
+
         $subjects = [
             ['name' => 'Toán', 'description' => 'Ôn tập kiến thức và luyện đề Toán THPT.'],
             ['name' => 'Ngữ văn', 'description' => 'Ôn đọc hiểu, nghị luận xã hội và nghị luận văn học THPT.'],
@@ -47,12 +56,14 @@ class DatabaseSeeder extends Seeder
 
         foreach ($subjects as $subjectData) {
             $subject = Subject::updateOrCreate(['name' => $subjectData['name']], ['description' => $subjectData['description']]);
-            Course::firstOrCreate([
+            Course::updateOrCreate([
                 'subject_id' => $subject->id,
                 'title' => "Ôn thi THPT môn {$subject->name}",
             ], [
                 'teacher_id' => $teacher->id,
                 'description' => "Khóa học tổng hợp kiến thức trọng tâm, học liệu và đề luyện tập môn {$subject->name}.",
+                'start_at' => now()->subDays(7),
+                'end_at' => now()->addMonths(3),
                 'status' => 'public',
             ]);
         }

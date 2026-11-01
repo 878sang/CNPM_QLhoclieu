@@ -96,6 +96,23 @@
                         @enderror
                     </div>
 
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="start_at" class="form-label">Thời gian bắt đầu</label>
+                            <input type="datetime-local" name="start_at" id="start_at" class="form-control @error('start_at') is-invalid @enderror" value="{{ old('start_at', $course->start_at?->format('Y-m-d\\TH:i')) }}">
+                            @error('start_at')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end_at" class="form-label">Thời gian kết thúc</label>
+                            <input type="datetime-local" name="end_at" id="end_at" class="form-control @error('end_at') is-invalid @enderror" value="{{ old('end_at', $course->end_at?->format('Y-m-d\\TH:i')) }}">
+                            @error('end_at')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+
                     <div class="border-top pt-4 mt-2 d-flex gap-2">
                         <x-button>{{ $course->exists ? 'Lưu thay đổi' : 'Tạo khóa học' }}</x-button>
                         <x-button :href="route('courses.index')" variant="outline-primary">Hủy</x-button>

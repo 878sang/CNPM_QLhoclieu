@@ -110,7 +110,6 @@
 
                 <div class="mt-auto small text-white-50">
                     Thư viện số<br>
-                    <span class="font-mono">v1.0 / Sprint 01</span>
                 </div>
             </aside>
 

@@ -23,9 +23,25 @@
         </div>
     </form>
 
+    <form method="GET" action="{{ route('student.search') }}" class="row g-2 mb-4">
+        <input type="hidden" name="q" value="{{ $term }}">
+        <div class="col-12 col-md-10">
+            <select name="subject_id" class="form-select">
+                <option value="">Tất cả môn học</option>
+                @foreach ($subjects as $subject)
+                    <option value="{{ $subject->id }}" @selected(request('subject_id') == $subject->id)>{{ $subject->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-12 col-md-2">
+            <button class="btn btn-outline-primary w-100" type="submit">Lọc môn học</button>
+        </div>
+    </form>
+
     <div class="row g-4">
         @forelse($courses as $course)
             <div class="col-md-6 col-xl-4">
+                <a href="{{ route('student.courses.show', $course) }}" class="text-decoration-none text-reset">
                 <x-card class="p-3 h-100 lm-card-hover">
                     <span class="student-course-cover">
                         <i class="bi bi-book-half"></i>
@@ -42,6 +58,7 @@
                         Đang mở
                     </span>
                 </x-card>
+                </a>
             </div>
         @empty
             <div class="col-12">

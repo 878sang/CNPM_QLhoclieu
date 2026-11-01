@@ -40,6 +40,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [CourseController::class, 'store'])->name('store');
         Route::get('/{course}/sua', [CourseController::class, 'edit'])->name('edit');
         Route::put('/{course}', [CourseController::class, 'update'])->name('update');
+        Route::get('/{course}', [CourseController::class, 'show'])->name('show');
+        Route::delete('/{course}', [CourseController::class, 'destroy'])->name('destroy');
         Route::get('/{course}/hoc-vien', [EnrollmentController::class, 'index'])->name('students.index');
         Route::post('/{course}/hoc-vien', [EnrollmentController::class, 'store'])->name('students.store');
         Route::delete('/{course}/hoc-vien/{enrollment}', [EnrollmentController::class, 'destroy'])->scopeBindings()->name('students.destroy');
@@ -47,6 +49,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:student')->prefix('hoc-vien')->name('student.')->group(function () {
         Route::get('/', [StudentController::class, 'dashboard'])->name('dashboard');
         Route::get('/khoa-hoc', [StudentController::class, 'courses'])->name('courses');
+        Route::get('/khoa-hoc/{course}', [StudentController::class, 'show'])->name('courses.show');
+        Route::delete('/khoa-hoc/{course}/roi', [StudentController::class, 'leave'])->name('courses.leave');
         Route::get('/tien-do', [StudentController::class, 'progress'])->name('progress');
         Route::get('/tim-hoc-lieu', [StudentController::class, 'search'])->name('search');
         Route::get('/da-luu', fn () => view('placeholder', ['title' => 'Đã lưu']))->name('saved');
