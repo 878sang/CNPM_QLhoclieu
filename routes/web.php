@@ -4,9 +4,10 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EnrollmentController;
-use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,7 +46,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/{course}/hoc-vien', [EnrollmentController::class, 'index'])->name('students.index');
         Route::post('/{course}/hoc-vien', [EnrollmentController::class, 'store'])->name('students.store');
         Route::delete('/{course}/hoc-vien/{enrollment}', [EnrollmentController::class, 'destroy'])->scopeBindings()->name('students.destroy');
+        Route::get('/{course}/tai-lieu', [DocumentController::class, 'index'])->name('documents.index');
+        Route::post('/{course}/tai-lieu', [DocumentController::class, 'store'])->name('documents.store');
+        Route::get('/{course}/tai-lieu/{document}/sua', [DocumentController::class, 'edit'])->scopeBindings()->name('documents.edit');
+        Route::put('/{course}/tai-lieu/{document}', [DocumentController::class, 'update'])->scopeBindings()->name('documents.update');
+        Route::delete('/{course}/tai-lieu/{document}', [DocumentController::class, 'destroy'])->scopeBindings()->name('documents.destroy');
     });
+    Route::get('/khoa-hoc/{course}/tai-lieu/{document}/xem', [DocumentController::class, 'show'])->scopeBindings()->name('courses.documents.show');
+    Route::get('/khoa-hoc/{course}/tai-lieu/{document}/tai-xuong', [DocumentController::class, 'download'])->scopeBindings()->name('courses.documents.download');
     Route::middleware('role:student')->prefix('hoc-vien')->name('student.')->group(function () {
         Route::get('/', [StudentController::class, 'dashboard'])->name('dashboard');
         Route::get('/khoa-hoc', [StudentController::class, 'courses'])->name('courses');
