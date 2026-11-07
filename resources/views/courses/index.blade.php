@@ -17,6 +17,7 @@
                         <td>{{ $course->enrollments_count }}</td>
                         <td class="text-end text-nowrap">
                             <x-button :href="route('courses.students.index', $course)" variant="outline-primary" class="btn-sm">Học viên</x-button>
+                            <x-button :href="route('courses.documents.index', $course)" variant="outline-primary" class="btn-sm">Tài liệu</x-button>
                             <x-button :href="route('courses.edit', $course)" variant="outline-secondary" class="btn-sm">Sửa</x-button>
                         </td>
                     </tr>
