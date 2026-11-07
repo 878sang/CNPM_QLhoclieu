@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends(auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.teacher')
 @section('content')
 <x-page-header eyebrow="KHÓA HỌC / TÀI LIỆU" title="Chỉnh sửa tài liệu" :description="'Tệp hiện tại: '.$document->original_name">
     <x-slot:actions><x-button :href="route('courses.documents.index', $course)" variant="outline-primary">Quay lại danh sách</x-button></x-slot:actions>

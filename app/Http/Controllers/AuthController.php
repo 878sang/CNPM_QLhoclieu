@@ -67,7 +67,13 @@ class AuthController extends Controller
 
     public function editPassword()
     {
-        return view('auth.password');
+        $layout = match (auth()->user()->role?->name) {
+            'admin' => 'layouts.admin',
+            'teacher' => 'layouts.teacher',
+            default => 'layouts.student',
+        };
+
+        return view('auth.password', compact('layout'));
     }
 
     public function updatePassword(UpdatePasswordRequest $request)

@@ -1,1 +1,12 @@
-@extends('layouts.guest') @section('content')<div class="min-vh-100 d-flex align-items-center justify-content-center"><div class="text-center"><div class="font-mono text-accent display-6">404</div><h1 class="display-5">Không tìm thấy trang.</h1><p class="lm-text-muted">Có thể đường dẫn đã thay đổi hoặc nội dung chưa tồn tại.</p><a href="{{ url('/') }}" class="btn btn-primary mt-3">Về trang chủ</a></div></div>@endsection
+@extends('layouts.guest')
+
+@section('content')
+    <div class="min-vh-100 d-flex align-items-center justify-content-center">
+        <div class="text-center">
+            <div class="font-mono text-accent display-6">404</div>
+            <h1 class="display-5">Không tìm thấy trang.</h1>
+            <p class="lm-text-muted">Có thể đường dẫn đã thay đổi hoặc nội dung chưa tồn tại.</p>
+            <a href="{{ url('/') }}" class="btn btn-primary mt-3">Về trang chủ</a>
+        </div>
+    </div>
+@endsection

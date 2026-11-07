@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -24,11 +25,29 @@ class AdminController extends Controller
         ]);
     }
 
-    public function users(): View
+    public function users(Request $request): View
     {
         $this->authorize('viewAny', User::class);
 
-        return view('admin.users.index', ['users' => User::with('role')->latest()->paginate(10)]);
+        $users = User::with('role')
+            ->when($request->filled('q'), function ($query) use ($request): void {
+                $term = trim((string) $request->input('q'));
+                $query->where(function ($query) use ($term): void {
+                    $query->where('name', 'like', "%{$term}%")
+                        ->orWhere('username', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%");
+                });
+            })
+            ->when($request->filled('role'), fn ($query) => $query->whereRelation('role', 'name', $request->input('role')))
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->input('status')))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.users.index', [
+            'users' => $users,
+            'roles' => Role::orderBy('id')->get(),
+        ]);
     }
 
     public function createUser(): View

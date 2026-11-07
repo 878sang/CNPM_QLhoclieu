@@ -1,1 +1,12 @@
-@extends('layouts.guest') @section('content')<div class="min-vh-100 d-flex align-items-center justify-content-center"><div class="text-center"><div class="font-mono text-accent display-6">500</div><h1 class="display-5">Có lỗi ở phía máy chủ.</h1><p class="lm-text-muted">Hệ thống đang gặp sự cố tạm thời. Vui lòng thử lại sau.</p><a href="{{ url('/') }}" class="btn btn-primary mt-3">Về trang chủ</a></div></div>@endsection
+@extends('layouts.guest')
+
+@section('content')
+    <div class="min-vh-100 d-flex align-items-center justify-content-center">
+        <div class="text-center">
+            <div class="font-mono text-accent display-6">500</div>
+            <h1 class="display-5">Có lỗi ở phía máy chủ.</h1>
+            <p class="lm-text-muted">Hệ thống đang gặp sự cố tạm thời. Vui lòng thử lại sau.</p>
+            <a href="{{ url('/') }}" class="btn btn-primary mt-3">Về trang chủ</a>
+        </div>
+    </div>
+@endsection

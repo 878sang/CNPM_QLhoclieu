@@ -11,7 +11,15 @@ class Course extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['subject_id', 'teacher_id', 'title', 'description', 'cover_image', 'status'];
+    protected $fillable = ['subject_id', 'teacher_id', 'title', 'description', 'cover_image', 'start_at', 'end_at', 'status'];
+
+    protected function casts(): array
+    {
+        return [
+            'start_at' => 'datetime',
+            'end_at' => 'datetime',
+        ];
+    }
 
     public function subject(): BelongsTo
     {

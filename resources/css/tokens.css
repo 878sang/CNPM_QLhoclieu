@@ -1,0 +1,12 @@
+:root {
+    --paper: #f6f1e7; --surface: #fffdf8; --ink: #1f2a27; --ink-soft: #5b6663; --line: #e2dacb;
+    --brand: #1f5c4d; --brand-deep: #163f35; --accent: #c4623a; --brand-tint: #e4efea;
+    --success: #3e7c59; --warning: #b7791f; --danger: #b23a33; --focus: var(--accent); --on-brand: #fffdf8;
+}
+html[data-role='student'] { --brand: #1f5c4d; --brand-deep: #163f35; --accent: #c4623a; --brand-tint: #e4efea; }
+html[data-role='teacher'] { --brand: #27406b; --brand-deep: #1a2c4b; --accent: #d08a1e; --brand-tint: #e5eaf3; }
+html[data-role='admin'] { --brand: #34404a; --brand-deep: #232c34; --accent: #a8742a; --brand-tint: #e8eaec; }
+[data-theme='dark'] { --paper: #141b19; --surface: #1c2623; --ink: #f4efe4; --ink-soft: #b9c1ba; --line: #35443e; }
+[data-theme='dark'][data-role='student'] { --paper: #121916; --surface: #1b2723; --line: #33483f; --brand: #79b5a1; --brand-deep: #0f2f28; --accent: #e08a62; --brand-tint: #243a33; --on-brand: #10241f; }
+[data-theme='dark'][data-role='teacher'] { --paper: #121722; --surface: #1c2636; --line: #34445b; --brand: #91add7; --brand-deep: #12233f; --accent: #e3ad4d; --brand-tint: #283750; --on-brand: #12233f; }
+[data-theme='dark'][data-role='admin'] { --paper: #15191d; --surface: #20272d; --line: #3a444c; --brand: #aeb9c1; --brand-deep: #182028; --accent: #d5a45d; --brand-tint: #30373d; --on-brand: #182028; }
