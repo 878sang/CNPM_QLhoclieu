@@ -27,4 +27,14 @@ class Course extends Model
     {
         return $this->hasMany(Enrollment::class);
     }
+
+    public function chapters(): HasMany
+    {
+        return $this->hasMany(Chapter::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class);
+    }
 }
