@@ -10,7 +10,10 @@ class StoreAdminUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('viewAny', User::class) ?? false;
+        /** @var User|null $user */
+        $user = $this->user();
+
+        return $user?->can('viewAny', User::class) ?? false;
     }
 
     public function rules(): array

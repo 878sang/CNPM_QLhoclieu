@@ -5,16 +5,33 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Document extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['course_id', 'lesson_id', 'title', 'file_path', 'original_name', 'mime_type', 'size', 'allow_view', 'allow_download'];
+    protected $fillable = [
+        'course_id',
+        'lesson_id',
+        'type',
+        'url',
+        'title',
+        'file_path',
+        'original_name',
+        'mime_type',
+        'size',
+        'allow_view',
+        'allow_download',
+    ];
 
     protected function casts(): array
     {
-        return ['allow_view' => 'boolean', 'allow_download' => 'boolean'];
+        return [
+            'allow_view' => 'boolean',
+            'allow_download' => 'boolean',
+            'size' => 'integer',
+        ];
     }
 
     public function course(): BelongsTo
@@ -25,5 +42,133 @@ class Document extends Model
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
+    }
+
+    public function logs(): HasMany
+    {
+        return $this->hasMany(MaterialLog::class);
+    }
+
+    public function isLink(): bool
+    {
+        return $this->type === 'link';
+    }
+
+    public function isVideo(): bool
+    {
+        if ($this->type === 'video') {
+            return true;
+        }
+
+        if ($this->mime_type && str_starts_with($this->mime_type, 'video/')) {
+            return true;
+        }
+
+        $extension = strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION));
+
+        return in_array($extension, ['mp4', 'webm', 'ogg', 'mkv', 'mov']);
+    }
+
+    public function isPdf(): bool
+    {
+        if ($this->mime_type === 'application/pdf') {
+            return true;
+        }
+
+        return strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION)) === 'pdf';
+    }
+
+    public function isOffice(): bool
+    {
+        $extension = strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION));
+
+        return in_array($extension, ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']);
+    }
+
+    public function isYouTube(): bool
+    {
+        if (! $this->url) {
+            return false;
+        }
+
+        return (bool) preg_match('/(youtube\.com|youtu\.be)/i', $this->url);
+    }
+
+    public function isGoogleDrive(): bool
+    {
+        if (! $this->url) {
+            return false;
+        }
+
+        return (bool) preg_match('/drive\.google\.com/i', $this->url);
+    }
+
+    public function getEmbedUrlAttribute(): ?string
+    {
+        if (! $this->url) {
+            return null;
+        }
+
+        // YouTube
+        if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $this->url, $matches)) {
+            return 'https://www.youtube.com/embed/'.$matches[1];
+        }
+
+        // Google Drive preview
+        if (preg_match('/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/', $this->url, $matches)) {
+            return 'https://drive.google.com/file/d/'.$matches[1].'/preview';
+        }
+
+        return $this->url;
+    }
+
+    public function formattedSize(): string
+    {
+        if (! $this->size) {
+            return '—';
+        }
+
+        if ($this->size >= 1048576) {
+            return number_format($this->size / 1048576, 1, ',', '.').' MB';
+        }
+
+        return number_format($this->size / 1024, 0, ',', '.').' KB';
+    }
+
+    public function typeLabel(): string
+    {
+        return match ($this->type) {
+            'video' => 'Video bài giảng',
+            'link' => 'Liên kết ngoài',
+            default => 'Tài liệu tệp',
+        };
+    }
+
+    public function typeIcon(): string
+    {
+        if ($this->isVideo()) {
+            return 'bi-play-circle-fill text-danger';
+        }
+
+        if ($this->isLink()) {
+            return 'bi-link-45deg text-info';
+        }
+
+        if ($this->isPdf()) {
+            return 'bi-file-earmark-pdf-fill text-danger';
+        }
+
+        $extension = strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION));
+        if (in_array($extension, ['doc', 'docx'])) {
+            return 'bi-file-earmark-word-fill text-primary';
+        }
+        if (in_array($extension, ['ppt', 'pptx'])) {
+            return 'bi-file-earmark-ppt-fill text-warning';
+        }
+        if (in_array($extension, ['xls', 'xlsx'])) {
+            return 'bi-file-earmark-excel-fill text-success';
+        }
+
+        return 'bi-file-earmark-text-fill text-secondary';
     }
 }

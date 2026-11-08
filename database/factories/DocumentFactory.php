@@ -15,6 +15,7 @@ class DocumentFactory extends Factory
     {
         return [
             'course_id' => Course::factory(),
+            'type' => 'file',
             'title' => fake()->sentence(3),
             'file_path' => 'documents/'.fake()->uuid().'.pdf',
             'original_name' => 'tai-lieu.pdf',
@@ -23,5 +24,29 @@ class DocumentFactory extends Factory
             'allow_view' => true,
             'allow_download' => false,
         ];
+    }
+
+    public function video(string $url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'): static
+    {
+        return $this->state(fn () => [
+            'type' => 'video',
+            'url' => $url,
+            'file_path' => null,
+            'original_name' => null,
+            'mime_type' => null,
+            'size' => null,
+        ]);
+    }
+
+    public function link(string $url = 'https://example.com/tai-lieu'): static
+    {
+        return $this->state(fn () => [
+            'type' => 'link',
+            'url' => $url,
+            'file_path' => null,
+            'original_name' => null,
+            'mime_type' => null,
+            'size' => null,
+        ]);
     }
 }

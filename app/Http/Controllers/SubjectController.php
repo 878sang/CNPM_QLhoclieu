@@ -18,7 +18,7 @@ class SubjectController extends Controller
 
     public function create(): View
     {
-        return view('admin.subjects.form', ['subject' => new Subject()]);
+        return view('admin.subjects.form', ['subject' => new Subject]);
     }
 
     public function store(SubjectRequest $request): RedirectResponse

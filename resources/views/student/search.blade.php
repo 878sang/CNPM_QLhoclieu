@@ -38,36 +38,46 @@
         </div>
     </form>
 
-    <div class="row g-4">
+    <div class="d-flex flex-column gap-3">
         @forelse($courses as $course)
-            <div class="col-md-6 col-xl-4">
-                <a href="{{ route('student.courses.show', $course) }}" class="text-decoration-none text-reset">
-                <x-card class="p-3 h-100 lm-card-hover">
-                    <span class="student-course-cover">
-                        <i class="bi bi-book-half"></i>
-                    </span>
-                    <x-badge class="mt-3" tone="primary">
-                        {{ $course->subject?->name }}
-                    </x-badge>
-                    <h2 class="h5 mt-3">{{ $course->title }}</h2>
-                    <p class="small lm-text-muted">
-                        {{ Str::limit($course->description, 110) }}
-                    </p>
-                    <span class="small text-brand">
-                        <i class="bi bi-check2-circle me-1"></i>
-                        Đang mở
-                    </span>
-                </x-card>
-                </a>
+            <div class="card border rounded-3 overflow-hidden shadow-sm hover-shadow transition-all bg-white">
+                <div class="row g-0 align-items-center">
+                    <div class="col-md-4 col-lg-3 position-relative" style="min-height: 160px;">
+                        <a href="{{ route('student.courses.show', $course) }}" class="d-block h-100 w-100">
+                            <img src="{{ $course->cover_url }}" alt="{{ $course->title }}" class="w-100 h-100 object-fit-cover" style="min-height: 160px; max-height: 190px;">
+                        </a>
+                        <div class="position-absolute top-0 start-0 m-2">
+                            <x-badge tone="primary">{{ $course->subject?->name }}</x-badge>
+                        </div>
+                    </div>
+                    <div class="col-md-5 col-lg-6 p-3 p-lg-4">
+                        <div class="d-flex align-items-center gap-2 mb-1 text-muted small">
+                            <span><i class="bi bi-person-circle me-1"></i>{{ $course->teacher?->name ?: 'Giảng viên' }}</span>
+                            <span>•</span>
+                            <span><i class="bi bi-calendar-event me-1"></i>{{ $course->start_at?->format('d/m/Y') ?: 'Bắt đầu ngay' }} - {{ $course->end_at?->format('d/m/Y') ?: 'Vô thời hạn' }}</span>
+                        </div>
+                        <h2 class="h5 mb-2 fw-bold">
+                            <a href="{{ route('student.courses.show', $course) }}" class="text-dark text-decoration-none hover-primary">
+                                {{ $course->title }}
+                            </a>
+                        </h2>
+                        <p class="small text-muted mb-0 text-truncate-2">
+                            {{ Str::limit($course->description, 130) ?: 'Khóa học ôn thi THPT tuyển chọn kiến thức và tài liệu chi tiết.' }}
+                        </p>
+                    </div>
+                    <div class="col-md-3 col-lg-3 p-3 p-lg-4 border-start-md bg-light d-flex flex-column gap-2 justify-content-center h-100" style="min-height: 160px;">
+                        <a href="{{ route('student.courses.show', $course) }}" class="btn btn-primary btn-sm w-100 py-2">
+                            <i class="bi bi-eye me-1"></i>Xem chi tiết khóa học
+                        </a>
+                    </div>
+                </div>
             </div>
         @empty
-            <div class="col-12">
-                <x-empty-state
-                    title="Không tìm thấy khóa học"
-                    message="Thử tìm với từ khóa khác."
-                    icon="search"
-                />
-            </div>
+            <x-empty-state
+                title="Không tìm thấy khóa học"
+                message="Thử tìm với từ khóa khác."
+                icon="search"
+            />
         @endforelse
     </div>
 

@@ -95,9 +95,6 @@
                         <a class="nav-link {{ request()->routeIs('teacher.students') ? 'active' : '' }}" href="{{ route('teacher.students') }}">
                             <i class="bi bi-people me-2"></i>Học viên
                         </a>
-                        <a class="nav-link {{ request()->routeIs('teacher.materials') ? 'active' : '' }}" href="{{ route('teacher.materials') }}">
-                            <i class="bi bi-folder2-open me-2"></i>Học liệu
-                        </a>
                         <a class="nav-link {{ request()->routeIs('teacher.statistics') ? 'active' : '' }}" href="{{ route('teacher.statistics') }}">
                             <i class="bi bi-bar-chart me-2"></i>Thống kê
                         </a>
@@ -185,7 +182,6 @@
                     @else
                         <a class="nav-link text-white" href="{{ route('teacher.dashboard') }}">Khóa học của tôi</a>
                         <a class="nav-link text-white" href="{{ route('teacher.students') }}">Học viên</a>
-                        <a class="nav-link text-white" href="{{ route('teacher.materials') }}">Học liệu</a>
                         <a class="nav-link text-white" href="{{ route('teacher.statistics') }}">Thống kê</a>
                     @endif
                 </nav>

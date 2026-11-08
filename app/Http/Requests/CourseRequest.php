@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Course;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,11 +12,13 @@ class CourseRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        /** @var User $user */
+        $user = $this->user();
         $course = $this->route('course');
 
         return $course
-            ? $this->user()->can('update', $course)
-            : $this->user()->can('create', Course::class);
+            ? $user->can('update', $course)
+            : $user->can('create', Course::class);
     }
 
     public function rules(): array
