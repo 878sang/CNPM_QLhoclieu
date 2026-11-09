@@ -24,6 +24,8 @@ class DocumentManagementTest extends TestCase
 
     private User $student;
 
+    private User $admin;
+
     private Course $course;
 
     protected function setUp(): void
@@ -35,6 +37,7 @@ class DocumentManagementTest extends TestCase
         $this->teacher = User::factory()->create(['role_id' => $roles['teacher']->id]);
         $this->otherTeacher = User::factory()->create(['role_id' => $roles['teacher']->id]);
         $this->student = User::factory()->create(['role_id' => $roles['student']->id]);
+        $this->admin = User::factory()->create(['role_id' => $roles['admin']->id]);
         $this->course = Course::factory()->create(['teacher_id' => $this->teacher->id]);
     }
 
@@ -169,5 +172,120 @@ class DocumentManagementTest extends TestCase
 
         $this->actingAs($this->student)->get(route('courses.documents.show', [$this->course, $document]))->assertForbidden();
         $this->actingAs($this->teacher)->get(route('courses.documents.download', [$this->course, $document]))->assertOk();
+    }
+
+    public function test_admin_can_access_global_documents_page_and_upload_with_auto_conversion(): void
+    {
+        $this->actingAs($this->admin)->get(route('admin.documents.index'))->assertOk();
+
+        $file = UploadedFile::fake()->create('bai-tap.docx', 120, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+        $response = $this->actingAs($this->admin)->post(route('admin.documents.store'), [
+            'course_id' => $this->course->id,
+            'type' => 'file',
+            'title' => 'Bài tập tuần 1 Word',
+            'file' => $file,
+            'allow_view' => '1',
+            'allow_download' => '1',
+        ]);
+
+        $response->assertRedirect(route('admin.documents.index'));
+
+        $document = Document::where('title', 'Bài tập tuần 1 Word')->firstOrFail();
+        $this->assertSame($this->course->id, $document->course_id);
+        $this->assertNotNull($document->file_path);
+        $this->assertNotNull($document->converted_pdf_path);
+        Storage::assertExists($document->file_path);
+        Storage::assertExists($document->converted_pdf_path);
+
+        // When viewing online, it returns the interactive document viewer
+        $this->actingAs($this->admin)
+            ->get(route('courses.documents.show', [$this->course, $document]))
+            ->assertOk()
+            ->assertSee('Bài tập tuần 1 Word');
+
+        // When requesting raw stream, it returns the raw file response
+        $this->actingAs($this->admin)
+            ->get(route('courses.documents.show', [$this->course, $document, 'raw' => 1]))
+            ->assertOk();
+    }
+
+    public function test_non_admin_cannot_access_admin_documents_page(): void
+    {
+        $this->actingAs($this->student)->get(route('admin.documents.index'))->assertForbidden();
+        $this->actingAs($this->teacher)->get(route('admin.documents.index'))->assertForbidden();
+    }
+
+    public function test_teacher_uploads_document_defaults_to_pending_approval(): void
+    {
+        $this->actingAs($this->teacher)->get(route('teacher.materials.index'))->assertOk();
+
+        $file = UploadedFile::fake()->create('giao-trinh.pdf', 50, 'application/pdf');
+
+        $response = $this->actingAs($this->teacher)->post(route('teacher.materials.store'), [
+            'course_id' => $this->course->id,
+            'type' => 'file',
+            'title' => 'Tài liệu giáo viên mẫu',
+            'file' => $file,
+            'allow_view' => '1',
+            'allow_download' => '1',
+        ]);
+
+        $response->assertRedirect(route('teacher.materials.index'));
+
+        $document = Document::where('title', 'Tài liệu giáo viên mẫu')->firstOrFail();
+        $this->assertTrue($document->isPending());
+    }
+
+    public function test_admin_can_approve_and_reject_document(): void
+    {
+        $doc = $this->storedDocument(['status' => 'pending']);
+
+        $this->actingAs($this->admin)->post(route('admin.documents.approve', $doc))
+            ->assertRedirect();
+        $this->assertTrue($doc->fresh()->isApproved());
+
+        $this->actingAs($this->admin)->post(route('admin.documents.reject', $doc), ['reason' => 'Chưa đạt chuẩn'])
+            ->assertRedirect();
+        $this->assertTrue($doc->fresh()->isRejected());
+        $this->assertSame('Chưa đạt chuẩn', $doc->fresh()->rejection_reason);
+    }
+
+    public function test_student_cannot_view_pending_document_until_approved(): void
+    {
+        Enrollment::factory()->create(['course_id' => $this->course->id, 'user_id' => $this->student->id]);
+        $pendingDoc = $this->storedDocument(['status' => 'pending', 'allow_view' => true]);
+
+        // Student cannot view pending document
+        $this->actingAs($this->student)->get(route('courses.documents.show', [$this->course, $pendingDoc]))
+            ->assertForbidden();
+
+        // Admin approves document
+        $this->actingAs($this->admin)->post(route('admin.documents.approve', $pendingDoc));
+
+        // Student can now view
+        $this->actingAs($this->student)->get(route('courses.documents.show', [$this->course, $pendingDoc]))
+            ->assertOk();
+    }
+
+    public function test_upload_accepts_word_and_powerpoint_documents(): void
+    {
+        $this->actingAs($this->teacher);
+
+        $docx = UploadedFile::fake()->create('bai_tap.docx', 500);
+        $this->post(route('courses.documents.store', $this->course), $this->payload([
+            'title' => 'Bài tập 1',
+            'file' => $docx,
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('documents', ['title' => 'Bài tập 1']);
+
+        $pptx = UploadedFile::fake()->create('slide.pptx', 1000);
+        $this->post(route('courses.documents.store', $this->course), $this->payload([
+            'title' => 'Slide bài giảng',
+            'file' => $pptx,
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('documents', ['title' => 'Slide bài giảng']);
     }
 }

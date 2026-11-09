@@ -18,11 +18,14 @@ class Document extends Model
         'url',
         'title',
         'file_path',
+        'converted_pdf_path',
         'original_name',
         'mime_type',
         'size',
         'allow_view',
         'allow_download',
+        'status',
+        'rejection_reason',
     ];
 
     protected function casts(): array
@@ -83,6 +86,70 @@ class Document extends Model
         $extension = strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION));
 
         return in_array($extension, ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']);
+    }
+
+    public function isWord(): bool
+    {
+        $extension = strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION));
+
+        return in_array($extension, ['doc', 'docx']);
+    }
+
+    public function isPowerPoint(): bool
+    {
+        $extension = strtolower(pathinfo($this->original_name ?? '', PATHINFO_EXTENSION));
+
+        return in_array($extension, ['ppt', 'pptx']);
+    }
+
+    public function isConvertibleOffice(): bool
+    {
+        return $this->isWord() || $this->isPowerPoint();
+    }
+
+    public function hasConvertedPdf(): bool
+    {
+        return ! empty($this->getAttribute('converted_pdf_path'));
+    }
+
+    public function isApproved(): bool
+    {
+        return ($this->getAttribute('status') ?? 'approved') === 'approved';
+    }
+
+    public function isPending(): bool
+    {
+        return $this->getAttribute('status') === 'pending';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->getAttribute('status') === 'rejected';
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->getAttribute('status')) {
+            'pending' => 'Chờ duyệt',
+            'rejected' => 'Bị từ chối',
+            default => 'Đã duyệt',
+        };
+    }
+
+    public function statusBadgeClass(): string
+    {
+        return match ($this->getAttribute('status')) {
+            'pending' => 'bg-warning text-dark',
+            'rejected' => 'bg-danger text-white',
+            default => 'bg-success text-white',
+        };
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('status', 'approved')->orWhereNull('status');
+        });
     }
 
     public function isYouTube(): bool

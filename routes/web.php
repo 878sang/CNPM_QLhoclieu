@@ -37,10 +37,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/tai-khoan/tao-moi', [AdminController::class, 'createUser'])->name('users.create');
         Route::post('/tai-khoan', [AdminController::class, 'storeUser'])->name('users.store');
         Route::resource('mon-hoc', SubjectController::class)->parameters(['mon-hoc' => 'subject'])->except(['show'])->names('subjects');
+        Route::get('/tai-lieu', [DocumentController::class, 'adminIndex'])->name('documents.index');
+        Route::post('/tai-lieu', [DocumentController::class, 'adminStore'])->name('documents.store');
+        Route::post('/tai-lieu/{document}/duyet', [DocumentController::class, 'approve'])->name('documents.approve');
+        Route::post('/tai-lieu/{document}/tu-choi', [DocumentController::class, 'reject'])->name('documents.reject');
     });
 
     Route::get('/quan-ly-khoa-hoc', [CourseController::class, 'index'])->middleware('role:teacher')->name('teacher.dashboard');
-    Route::get('/tai-lieu', fn () => view('placeholder', ['title' => 'Tài liệu']))->middleware('role:teacher')->name('teacher.materials');
+    Route::middleware('role:teacher')->prefix('giang-vien')->name('teacher.materials.')->group(function () {
+        Route::get('/tai-lieu', [DocumentController::class, 'teacherIndex'])->name('index');
+        Route::post('/tai-lieu', [DocumentController::class, 'teacherStore'])->name('store');
+    });
+    Route::get('/tai-lieu', fn () => redirect()->route('teacher.materials.index'))->middleware('role:teacher')->name('teacher.materials');
     Route::get('/thong-ke', fn () => view('placeholder', ['title' => 'Thống kê']))->middleware('role:teacher')->name('teacher.statistics');
 
     Route::middleware('role:admin,teacher')->prefix('khoa-hoc')->name('courses.')->group(function () {

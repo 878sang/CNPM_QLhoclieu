@@ -276,9 +276,9 @@
                                             <!-- VÙNG PREVIEW TÀI LIỆU (MẶC ĐỊNH ĐÓNG, CLICK VÀO MỚI MỞ RA) -->
                                             <div class="collapse border-top" id="stPreviewDoc{{ $doc->id }}">
                                                 <div class="p-3 bg-white">
-                                                    @if($doc->isPdf() && $doc->file_path)
+                                                    @if(($doc->isPdf() || $doc->hasConvertedPdf()) && $doc->file_path)
                                                         <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
-                                                            <span class="small fw-semibold text-muted">Trình xem trực tuyến PDF</span>
+                                                            <span class="small fw-semibold text-muted">Trình xem trực tuyến {{ $doc->hasConvertedPdf() ? '(Word/PowerPoint đã chuyển đổi PDF)' : 'PDF' }}</span>
                                                             <a href="{{ route('courses.documents.show', [$course, $doc]) }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2 small">
                                                                 <i class="bi bi-arrows-fullscreen me-1"></i>Toàn màn hình
                                                             </a>
