@@ -88,9 +88,15 @@
                         <a class="nav-link {{ request()->routeIs('courses.*') ? 'active' : '' }}" href="{{ route('courses.index') }}">
                             <i class="bi bi-journal-text me-2"></i>Khóa học
                         </a>
+                        <a class="nav-link {{ request()->routeIs('admin.documents.*') ? 'active' : '' }}" href="{{ route('admin.documents.index') }}">
+                            <i class="bi bi-folder2-open me-2"></i>Tài liệu
+                        </a>
                     @else
-                        <a class="nav-link {{ request()->routeIs('teacher.dashboard', 'courses.*') ? 'active' : '' }}" href="{{ route('teacher.dashboard') }}">
+                        <a class="nav-link {{ request()->routeIs('teacher.dashboard', 'courses.*') && !request()->routeIs('teacher.materials.*') ? 'active' : '' }}" href="{{ route('teacher.dashboard') }}">
                             <i class="bi bi-journal-text me-2"></i>Khóa học của tôi
+                        </a>
+                        <a class="nav-link {{ request()->routeIs('teacher.materials.*') ? 'active' : '' }}" href="{{ route('teacher.materials.index') }}">
+                            <i class="bi bi-folder2-open me-2"></i>Tài liệu
                         </a>
                         <a class="nav-link {{ request()->routeIs('teacher.students') ? 'active' : '' }}" href="{{ route('teacher.students') }}">
                             <i class="bi bi-people me-2"></i>Học viên
@@ -179,8 +185,10 @@
                         <a class="nav-link text-white" href="{{ route('admin.users.index') }}">Người dùng</a>
                         <a class="nav-link text-white" href="{{ route('admin.subjects.index') }}">Môn học</a>
                         <a class="nav-link text-white" href="{{ route('courses.index') }}">Khóa học</a>
+                        <a class="nav-link text-white" href="{{ route('admin.documents.index') }}">Tài liệu</a>
                     @else
                         <a class="nav-link text-white" href="{{ route('teacher.dashboard') }}">Khóa học của tôi</a>
+                        <a class="nav-link text-white" href="{{ route('teacher.materials.index') }}">Tài liệu</a>
                         <a class="nav-link text-white" href="{{ route('teacher.students') }}">Học viên</a>
                         <a class="nav-link text-white" href="{{ route('teacher.statistics') }}">Thống kê</a>
                     @endif

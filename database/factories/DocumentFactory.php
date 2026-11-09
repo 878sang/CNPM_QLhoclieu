@@ -18,6 +18,7 @@ class DocumentFactory extends Factory
             'type' => 'file',
             'title' => fake()->sentence(3),
             'file_path' => 'documents/'.fake()->uuid().'.pdf',
+            'converted_pdf_path' => null,
             'original_name' => 'tai-lieu.pdf',
             'mime_type' => 'application/pdf',
             'size' => 1024,

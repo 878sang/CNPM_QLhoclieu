@@ -56,6 +56,11 @@ $activeTab = request('tab', 'content');
                     <i class="bi bi-bar-chart-line me-1"></i>TIẾN ĐỘ HỌC
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link py-3 px-3 fw-semibold text-uppercase {{ $activeTab === 'documents' ? 'active' : '' }}" href="{{ route('courses.show', ['course' => $course, 'tab' => 'documents']) }}">
+                    <i class="bi bi-folder2-open me-1"></i>TÀI LIỆU ({{ $course->documents->count() }})
+                </a>
+            </li>
         </ul>
     </div>
 
@@ -447,9 +452,11 @@ $activeTab = request('tab', 'content');
                                 <!-- KHU VỰC PREVIEW TÀI LIỆU: MẶC ĐỊNH ĐÓNG, CLICK VÀO MỚI MỞ RA -->
                                 <div class="collapse border-top" id="previewDocCollapse{{ $doc->id }}">
                                     <div class="p-3 bg-white">
-                                        @if($doc->isPdf() && $doc->file_path)
+                                        @if(($doc->isPdf() || $doc->hasConvertedPdf()) && $doc->file_path)
                                         <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
-                                            <span class="small fw-semibold text-muted">Trình xem PDF trực tuyến</span>
+                                            <span class="small fw-semibold text-muted">
+                                                Trình xem trực tuyến {{ $doc->hasConvertedPdf() ? '(Word/PowerPoint đã chuyển đổi PDF)' : 'PDF' }}
+                                            </span>
                                             <a href="{{ route('courses.documents.show', [$course, $doc]) }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2 small">
                                                 <i class="bi bi-box-arrow-up-right me-1"></i>Mở toàn màn hình
                                             </a>
@@ -813,6 +820,189 @@ $activeTab = request('tab', 'content');
             </table>
         </div>
     </div>
+    @elseif($activeTab === 'documents')
+    <!-- ============================================================ -->
+    <!-- TAB TÀI LIỆU CỦA KHÓA HỌC                                    -->
+    <!-- ============================================================ -->
+    <div class="p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+            <div>
+                <h2 class="h5 mb-1 fw-bold text-dark">
+                    <i class="bi bi-folder2-open text-primary me-2"></i>Tài liệu & Học liệu của khóa học
+                </h2>
+                <p class="small text-muted mb-0">Quản lý toàn bộ tài liệu đính kèm, video bài giảng và học liệu được tải lên trong khóa học này.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ route('courses.documents.index', $course) }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-cloud-arrow-up me-1"></i>Quản lý &amp; Tải lên học liệu mới
+                </a>
+            </div>
+        </div>
+
+        @php
+            $courseDocs = $course->documents()->with('lesson.chapter')->latest()->get();
+        @endphp
+
+        <div class="table-responsive border rounded-3 overflow-hidden shadow-2xs mb-4">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Học liệu</th>
+                        <th>Gắn với bài học</th>
+                        <th>Loại</th>
+                        <th>Trạng thái duyệt</th>
+                        <th>Quyền học viên</th>
+                        <th class="text-center">Lượt xem/tải</th>
+                        <th class="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($courseDocs as $cDoc)
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi {{ $cDoc->typeIcon() }} fs-4"></i>
+                                <div>
+                                    <div class="fw-semibold text-dark">{{ $cDoc->title }}</div>
+                                    <div class="small text-muted">
+                                        @if($cDoc->file_path)
+                                            {{ $cDoc->original_name }} · {{ $cDoc->formattedSize() }}
+                                            @if($cDoc->hasConvertedPdf())
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle ms-1">
+                                                    <i class="bi bi-file-earmark-pdf"></i> PDF Preview
+                                                </span>
+                                            @endif
+                                        @elseif($cDoc->url)
+                                            <span class="text-truncate d-inline-block" style="max-width: 220px;">{{ $cDoc->url }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            @if($cDoc->lesson)
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-journal-bookmark me-1"></i>{{ $cDoc->lesson->title }}
+                                </span>
+                            @else
+                                <span class="badge bg-secondary-subtle text-secondary border">
+                                    Tài liệu chung
+                                </span>
+                            @endif
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">
+                                {{ $cDoc->typeLabel() }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {{ $cDoc->statusBadgeClass() }}">
+                                {{ $cDoc->statusLabel() }}
+                            </span>
+                            @if($cDoc->isRejected() && $cDoc->rejection_reason)
+                                <div class="small text-danger mt-1 fst-italic">
+                                    <i class="bi bi-info-circle me-1"></i>{{ $cDoc->rejection_reason }}
+                                </div>
+                            @endif
+                        </td>
+                        <td>
+                            <div class="small d-flex flex-column gap-1">
+                                <div><i class="bi {{ $cDoc->allow_view ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-1"></i>Xem trực tuyến</div>
+                                <div><i class="bi {{ $cDoc->allow_download ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-1"></i>Tải về</div>
+                            </div>
+                        </td>
+                        <td class="text-center small text-muted">
+                            <div><i class="bi bi-eye text-primary me-1"></i>{{ $cDoc->logs()->where('action', 'view')->count() }}</div>
+                            <div><i class="bi bi-download text-success me-1"></i>{{ $cDoc->logs()->where('action', 'download')->count() }}</div>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <div class="d-inline-flex align-items-center gap-1">
+                                @if(auth()->user()->hasRole('admin'))
+                                    <!-- NHÓM KIỂM DUYỆT (ADMIN) -->
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Kiểm duyệt">
+                                        <form method="POST" action="{{ route('admin.documents.approve', $cDoc) }}" class="d-inline" onsubmit="return confirm('Xác nhận phê duyệt tài liệu: {{ addslashes($cDoc->title) }}?');">
+                                            @csrf
+                                            <button type="submit" 
+                                                    class="btn btn-sm {{ $cDoc->isApproved() ? 'btn-success text-white' : 'btn-outline-success' }}" 
+                                                    title="{{ $cDoc->isApproved() ? 'Tài liệu đã được duyệt (Bấm để phê duyệt lại)' : 'Bấm để phê duyệt tài liệu này' }}">
+                                                <i class="bi {{ $cDoc->isApproved() ? 'bi-check-circle-fill' : 'bi-check-circle' }} me-1"></i>{{ $cDoc->isApproved() ? 'Đã duyệt' : 'Duyệt' }}
+                                            </button>
+                                        </form>
+
+                                        <button type="button" 
+                                                class="btn btn-sm {{ $cDoc->isRejected() ? 'btn-danger text-white' : 'btn-outline-warning' }}" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#tabRejectModal{{ $cDoc->id }}" 
+                                                title="{{ $cDoc->isRejected() ? 'Tài liệu đã bị từ chối (Bấm để xem hoặc sửa lý do)' : 'Bấm để từ chối tài liệu này' }}">
+                                            <i class="bi {{ $cDoc->isRejected() ? 'bi-x-circle-fill' : 'bi-x-circle' }} me-1"></i>{{ $cDoc->isRejected() ? 'Đã từ chối' : 'Từ chối' }}
+                                        </button>
+                                    </div>
+                                @endif
+
+                                <!-- NHÓM THAO TÁC TÀI LIỆU -->
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Thao tác">
+                                    @if($cDoc->allow_view || auth()->user()->can('update', $course))
+                                        <a href="{{ route('courses.documents.show', [$course, $cDoc]) }}" target="_blank" class="btn btn-outline-primary" title="Xem trực tuyến">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    @endif
+                                    @if($cDoc->allow_download || auth()->user()->can('update', $course))
+                                        <a href="{{ route('courses.documents.download', [$course, $cDoc]) }}" class="btn btn-outline-success" title="Tải về máy">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                    @endif
+                                    <a href="{{ route('courses.documents.edit', [$course, $cDoc]) }}" class="btn btn-outline-secondary" title="Chỉnh sửa">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="POST" action="{{ route('courses.documents.destroy', [$course, $cDoc]) }}" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài liệu này?')" class="d-inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-outline-danger" title="Xóa">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            @if(auth()->user()->hasRole('admin'))
+                            <!-- MODAL TỪ CHỐI -->
+                            <div class="modal fade" id="tabRejectModal{{ $cDoc->id }}" tabindex="-1" aria-hidden="true" style="text-align: left;">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <form method="POST" action="{{ route('admin.documents.reject', $cDoc) }}">
+                                            @csrf
+                                            <div class="modal-header bg-light">
+                                                <h5 class="modal-title h6 fw-bold text-danger">Từ chối tài liệu: {{ $cDoc->title }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="tab_reason_{{ $cDoc->id }}" class="form-label small fw-semibold">Lý do từ chối:</label>
+                                                    <textarea name="reason" id="tab_reason_{{ $cDoc->id }}" class="form-control" rows="3" required placeholder="Nhập lý do chưa đạt yêu cầu...">{{ $cDoc->rejection_reason }}</textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer bg-light">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                <button type="submit" class="btn btn-sm btn-danger">Xác nhận từ chối</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="7">
+                            <x-empty-state title="Chưa có tài liệu trong khóa học" message="Bấm 'Quản lý & Tải lên học liệu mới' để bổ sung tài liệu cho khóa học này." />
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
     @endif
 </div>
 
@@ -1047,7 +1237,11 @@ $activeTab = request('tab', 'content');
                         let msg = 'Tải lên thất bại. Vui lòng kiểm tra dung lượng tệp hoặc thử lại.';
                         try {
                             const res = JSON.parse(xhr.responseText);
-                            if (res.message) msg = res.message;
+                            if (res.errors) {
+                                msg = Object.values(res.errors).flat().join('\n');
+                            } else if (res.message) {
+                                msg = res.message;
+                            }
                         } catch (e) {}
                         alert(msg);
                     }

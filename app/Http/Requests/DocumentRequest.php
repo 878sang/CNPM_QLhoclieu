@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Chapter;
+use App\Models\Course;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,7 +15,21 @@ class DocumentRequest extends FormRequest
         /** @var User|null $user */
         $user = $this->user();
 
-        return $user && $user->can('update', $this->route('course'));
+        if (! $user) {
+            return false;
+        }
+
+        if ($this->route('course')) {
+            return $user->can('update', $this->route('course'));
+        }
+
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        $course = Course::find($this->input('course_id'));
+
+        return $course ? $user->can('update', $course) : false;
     }
 
     protected function prepareForValidation(): void
@@ -37,30 +52,37 @@ class DocumentRequest extends FormRequest
 
     public function rules(): array
     {
-        $course = $this->route('course');
+        $course = $this->route('course') ?? Course::find($this->input('course_id'));
         $document = $this->route('document');
         $type = $this->input('type', 'file');
 
         $rules = [
             'type' => ['required', 'in:file,video,link'],
             'title' => ['nullable', 'string', 'max:255'],
-            'lesson_id' => [
-                'nullable',
-                Rule::exists('lessons', 'id')->whereIn(
-                    'chapter_id',
-                    Chapter::where('course_id', $course->id)->select('id')
-                ),
-            ],
             'allow_view' => ['boolean'],
             'allow_download' => ['boolean'],
             'redirect_to' => ['nullable', 'string'],
+        ];
+
+        if (! $this->route('course')) {
+            $rules['course_id'] = ['required', 'exists:courses,id'];
+        }
+
+        $rules['lesson_id'] = [
+            'nullable',
+            Rule::exists('lessons', 'id')->when($course, function ($query) use ($course) {
+                return $query->whereIn(
+                    'chapter_id',
+                    Chapter::where('course_id', $course->id)->select('id')
+                );
+            }),
         ];
 
         if ($type === 'link') {
             $rules['url'] = ['required', 'url', 'max:2048'];
         } elseif ($type === 'video') {
             if ($this->hasFile('file')) {
-                $rules['file'] = ['file', 'mimes:mp4,webm,ogg,mkv,mov', 'max:512000']; // 500MB
+                $rules['file'] = ['file', 'extensions:mp4,webm,ogg,mkv,mov', 'max:512000']; // 500MB
             } elseif (! $document && ! $this->filled('url')) {
                 $rules['url'] = ['required_without:file', 'url', 'max:2048'];
             } elseif ($this->filled('url')) {
@@ -69,7 +91,7 @@ class DocumentRequest extends FormRequest
         } else {
             // type == 'file'
             $fileRule = $document ? ['nullable', 'file'] : ['required', 'file'];
-            $fileRule[] = 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt';
+            $fileRule[] = 'extensions:pdf,doc,docx,ppt,pptx,xls,xlsx,txt';
             $fileRule[] = 'max:20480'; // 20MB
             $rules['file'] = $fileRule;
         }
@@ -85,13 +107,16 @@ class DocumentRequest extends FormRequest
             'type.required' => 'Vui lòng chọn loại tài liệu.',
             'type.in' => 'Loại tài liệu không hợp lệ.',
             'file.required' => 'Vui lòng chọn tệp tài liệu.',
-            'file.mimes' => 'Định dạng tệp không được hỗ trợ.',
-            'file.max' => 'Dung lượng tệp vượt quá giới hạn cho phép.',
+            'file.extensions' => 'Định dạng tệp không được hỗ trợ. Vui lòng chọn tệp PDF, Word (.doc, .docx), PowerPoint (.ppt, .pptx), Excel (.xls, .xlsx) hoặc TXT.',
+            'file.mimes' => 'Định dạng tệp không được hỗ trợ. Vui lòng chọn tệp PDF, Word (.doc, .docx), PowerPoint (.ppt, .pptx), Excel (.xls, .xlsx) hoặc TXT.',
+            'file.max' => 'Dung lượng tệp vượt quá giới hạn cho phép (tối đa 20MB cho tài liệu, 500MB cho video).',
             'file.uploaded' => 'Tải tệp lên thất bại. Vui lòng kiểm tra dung lượng và thử lại.',
             'url.required' => 'Vui lòng nhập liên kết (URL).',
             'url.required_without' => 'Vui lòng tải lên tệp video hoặc dán link video.',
             'url.url' => 'Địa chỉ liên kết (URL) không hợp lệ.',
             'lesson_id.exists' => 'Bài học không thuộc khóa học này.',
+            'course_id.required' => 'Vui lòng chọn khóa học cho tài liệu.',
+            'course_id.exists' => 'Khóa học được chọn không tồn tại trong hệ thống.',
         ];
     }
 }
