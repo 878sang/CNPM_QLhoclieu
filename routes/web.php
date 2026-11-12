@@ -41,6 +41,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/tai-lieu', [DocumentController::class, 'adminStore'])->name('documents.store');
         Route::post('/tai-lieu/{document}/duyet', [DocumentController::class, 'approve'])->name('documents.approve');
         Route::post('/tai-lieu/{document}/tu-choi', [DocumentController::class, 'reject'])->name('documents.reject');
+        Route::post('/bai-hoc/{lesson}/duyet', [LessonController::class, 'approve'])->name('lessons.approve');
+        Route::post('/bai-hoc/{lesson}/tu-choi', [LessonController::class, 'reject'])->name('lessons.reject');
     });
 
     Route::get('/quan-ly-khoa-hoc', [CourseController::class, 'index'])->middleware('role:teacher')->name('teacher.dashboard');

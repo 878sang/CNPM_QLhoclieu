@@ -14,31 +14,6 @@
     <x-alert tone="success" class="mb-4">{{ session('status') }}</x-alert>
 @endif
 
-<!-- THÊM HỌC LIỆU MỚI (TS2-04, TS2-06) -->
-<x-card class="p-4 mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h2 class="h5 mb-1"><i class="bi bi-cloud-arrow-up text-primary me-2"></i>Thêm học liệu / bài giảng mới</h2>
-            <p class="text-muted small mb-0">Hỗ trợ tệp tài liệu, video bài giảng MP4 hoặc liên kết YouTube / Drive.</p>
-        </div>
-        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#uploadFormCollapse">
-            <i class="bi bi-chevron-down"></i> Thu gọn/Mở
-        </button>
-    </div>
-
-    <div class="collapse show" id="uploadFormCollapse">
-        <form method="POST" action="{{ route('courses.documents.store', $course) }}" enctype="multipart/form-data">
-            @csrf
-            @include('documents._fields', ['document' => null])
-            <div class="d-flex justify-content-end">
-                <x-button>
-                    <i class="bi bi-upload me-2" aria-hidden="true"></i>Tải lên học liệu
-                </x-button>
-            </div>
-        </form>
-    </div>
-</x-card>
-
 <!-- DANH SÁCH HỌC LIỆU VÀ BỘ LỌC (TS2-07) -->
 <x-card class="p-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
@@ -139,9 +114,9 @@
                                         <i class="bi bi-download"></i>
                                     </a>
                                 @endif
-                                <a href="{{ route('courses.documents.edit', [$course, $document]) }}" class="btn btn-outline-secondary" title="Sửa thông tin">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editDocumentModal{{ $document->id }}" title="Sửa thông tin">
                                     <i class="bi bi-pencil"></i>
-                                </a>
+                                </button>
                                 <form method="POST" action="{{ route('courses.documents.destroy', [$course, $document]) }}" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa học liệu này?')">
                                     @csrf
                                     @method('DELETE')
@@ -150,6 +125,7 @@
                                     </button>
                                 </form>
                             </div>
+                            @include('documents._edit-modal', ['document' => $document])
                         </td>
                     </tr>
                 @empty

@@ -6,6 +6,7 @@ use App\Http\Requests\DocumentRequest;
 use App\Models\Course;
 use App\Models\Document;
 use App\Models\MaterialLog;
+use App\Models\Lesson;
 use App\Models\User;
 use App\Services\DocumentConversionService;
 use Illuminate\Database\Eloquent\Collection;
@@ -27,28 +28,17 @@ class DocumentController extends Controller
     {
         abort_unless(Auth::user()?->hasRole('admin'), 403);
 
-        $courses = Course::with('chapters.lessons')->orderBy('title')->get();
-
-        $query = Document::with(['course.teacher', 'lesson.chapter'])
-            ->withCount([
-                'logs as views_count' => fn ($q) => $q->where('action', 'view'),
-                'logs as downloads_count' => fn ($q) => $q->where('action', 'download'),
-            ])
-            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
-            ->when($request->filled('course_id'), fn ($q) => $q->where('course_id', $request->input('course_id')))
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
-            ->when($request->filled('q'), function ($q) use ($request): void {
-                $term = trim((string) $request->input('q'));
-                $q->where(function ($sub) use ($term): void {
-                    $sub->where('title', 'like', "%{$term}%")
-                        ->orWhere('original_name', 'like', "%{$term}%");
-                });
+        $pendingLessons = Lesson::with(['chapter.course.teacher', 'documents' => fn ($q) => $q->where('status', 'pending')])
+            ->where(function ($query): void {
+                $query->where('status', 'pending')
+                    ->orWhereHas('documents', fn ($documents) => $documents->where('status', 'pending'));
             })
-            ->latest();
+            ->whereHas('chapter.course')
+            ->latest('updated_at')
+            ->get();
 
         return view('admin.documents.index', [
-            'documents' => $query->paginate(15)->withQueryString(),
-            'courses' => $courses,
+            'pendingLessons' => $pendingLessons,
         ]);
     }
 
@@ -221,6 +211,7 @@ class DocumentController extends Controller
 
         $document = $course->documents()->create($data);
 
+
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
@@ -247,6 +238,7 @@ class DocumentController extends Controller
 
     public function update(DocumentRequest $request, Course $course, Document $document): RedirectResponse
     {
+        $lessonId = $request->input('lesson_id', $document->lesson_id);
         $previousPath = $document->file_path;
         $previousPdf = $document->getAttribute('converted_pdf_path');
         $data = $request->safe()->except('file');
@@ -261,6 +253,11 @@ class DocumentController extends Controller
             $data = [...$data, ...$fileAttrs];
         }
 
+        if (Auth::user()?->hasRole('teacher')) {
+            $this->attachStatusIfAvailable($data, 'pending');
+            $data['rejection_reason'] = null;
+        }
+
         $document->update($data);
 
         if ($request->hasFile('file')) {
@@ -272,12 +269,17 @@ class DocumentController extends Controller
             }
         }
 
-        return redirect()->route('courses.documents.index', $course)->with('status', 'Đã cập nhật tài liệu thành công.');
+        return redirect()->route('courses.show', [
+            'course' => $course,
+            'lesson_id' => $lessonId,
+            'tab' => 'content',
+        ])->with('status', 'Đã cập nhật tài liệu thành công. Tài liệu đang chờ Admin duyệt.');
     }
 
     public function destroy(Course $course, Document $document): RedirectResponse
     {
         $this->authorize('update', $course);
+        $lessonId = $document->lesson_id;
 
         $document->delete();
 
@@ -288,7 +290,11 @@ class DocumentController extends Controller
             Storage::delete($document->getAttribute('converted_pdf_path'));
         }
 
-        return redirect()->route('courses.documents.index', $course)->with('status', 'Đã xóa tài liệu thành công.');
+        return redirect()->route('courses.show', [
+            'course' => $course,
+            'lesson_id' => $lessonId,
+            'tab' => 'content',
+        ])->with('status', 'Đã xóa tài liệu thành công.');
     }
 
     public function show(Request $request, Course $course, Document $document): Response|RedirectResponse|StreamedResponse|View

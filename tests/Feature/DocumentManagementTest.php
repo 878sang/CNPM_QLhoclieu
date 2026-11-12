@@ -93,7 +93,7 @@ class DocumentManagementTest extends TestCase
         $document = $this->storedDocument(['allow_view' => true, 'allow_download' => true]);
 
         $this->actingAs($this->teacher)->put(route('courses.documents.update', [$this->course, $document]), ['title' => 'Tên mới'])
-            ->assertRedirect(route('courses.documents.index', $this->course));
+            ->assertRedirect(route('courses.show', ['course' => $this->course, 'tab' => 'content']));
 
         $document->refresh();
         $this->assertSame('Tên mới', $document->title);
@@ -266,6 +266,34 @@ class DocumentManagementTest extends TestCase
         // Student can now view
         $this->actingAs($this->student)->get(route('courses.documents.show', [$this->course, $pendingDoc]))
             ->assertOk();
+    }
+
+    public function test_pending_document_does_not_hide_approved_documents_from_published_lesson(): void
+    {
+        Enrollment::factory()->create(['course_id' => $this->course->id, 'user_id' => $this->student->id, 'status' => 'active']);
+        $chapter = Chapter::factory()->create(['course_id' => $this->course->id]);
+        $lesson = Lesson::factory()->create(['chapter_id' => $chapter->id, 'status' => 'published']);
+
+        Document::factory()->create([
+            'course_id' => $this->course->id,
+            'lesson_id' => $lesson->id,
+            'title' => 'Tài liệu đã duyệt',
+            'status' => 'approved',
+        ]);
+        Document::factory()->create([
+            'course_id' => $this->course->id,
+            'lesson_id' => $lesson->id,
+            'title' => 'Tài liệu chờ duyệt',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($this->student)
+            ->get(route('student.courses.show', $this->course))
+            ->assertOk()
+            ->assertSee('Tài liệu đã duyệt')
+            ->assertDontSee('Tài liệu chờ duyệt');
+
+        $this->assertSame('published', $lesson->fresh()->status);
     }
 
     public function test_upload_accepts_word_and_powerpoint_documents(): void

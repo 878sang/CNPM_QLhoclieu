@@ -6,6 +6,7 @@ $allLessons = $course->chapters->pluck('lessons')->flatten();
 $activeLessonId = request('lesson_id');
 $currentLesson = $activeLessonId ? $allLessons->firstWhere('id', $activeLessonId) : $allLessons->first();
 $activeTab = request('tab', 'content');
+$pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->count() ?? 0;
 @endphp
 
 @if (session('status'))
@@ -131,6 +132,8 @@ $activeTab = request('tab', 'content');
                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
                                 @if($lesson->isDraft())
                                 <span class="badge bg-warning-subtle text-warning border small fw-normal">Nháp</span>
+                                @elseif($lesson->isPending())
+                                <span class="badge bg-warning-subtle text-warning border small fw-normal">Chờ duyệt</span>
                                 @endif
                                 <span class="badge bg-light text-muted border small fw-normal">
                                     {{ $lesson->documents->count() }}
@@ -206,9 +209,18 @@ $activeTab = request('tab', 'content');
                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">
                             <i class="bi bi-pencil-square me-1"></i>Bản nháp
                         </span>
+                        @elseif($currentLesson->isPending())
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">
+                            <i class="bi bi-hourglass-split me-1"></i>Đang chờ duyệt
+                        </span>
                         @else
                         <span class="badge bg-success-subtle text-success border border-success">
                             <i class="bi bi-check-circle-fill me-1"></i>Đã xuất bản
+                        </span>
+                        @endif
+                        @if($pendingMaterialCount > 0)
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning" title="Tài liệu mới hoặc cập nhật đang chờ Admin duyệt">
+                            <i class="bi bi-hourglass-split me-1"></i>{{ $pendingMaterialCount }} học liệu chờ duyệt
                         </span>
                         @endif
                     </div>
@@ -235,15 +247,17 @@ $activeTab = request('tab', 'content');
                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">
                             <i class="bi bi-pencil-square me-1"></i>Bản nháp
                         </span>
-                        <button type="button" class="btn btn-sm btn-outline-success py-1 px-2" onclick="setLessonStatus('published')">
-                            <i class="bi bi-send-check me-1"></i>Xuất bản bài học
+                        <button type="button" class="btn btn-sm btn-outline-success py-1 px-2" onclick="setLessonStatus('pending')">
+                            <i class="bi bi-send-check me-1"></i>Gửi duyệt bài học
                         </button>
+                        @elseif($currentLesson->isPending())
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning"><i class="bi bi-hourglass-split me-1"></i>Đang chờ duyệt</span>
                         @else
                         <span class="badge bg-success-subtle text-success border border-success">
                             <i class="bi bi-check-circle-fill me-1"></i>Đã xuất bản
                         </span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="setLessonStatus('draft')">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>Chuyển về nháp
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 d-none" id="lesson_resubmit_btn" onclick="cancelLessonEdit()" title="Hủy thay đổi tên bài học">
+                            <i class="bi bi-x-lg me-1"></i>Hủy thay đổi
                         </button>
                         @endif
                     </div>
@@ -267,9 +281,11 @@ $activeTab = request('tab', 'content');
                                 placeholder="Nhập tên bài giảng..."
                                 required
                             >
-                            <button type="submit" class="btn btn-primary px-3 fw-semibold d-none" id="lesson_update_btn">
-                                <i class="bi bi-check2 me-1"></i>Cập nhật
-                            </button>
+                            @if(!$currentLesson->isDraft())
+                                <button type="submit" class="btn btn-primary px-3 fw-semibold d-none" id="lesson_update_btn">
+                                    <i class="bi bi-send-check me-1"></i>Lưu và gửi duyệt
+                                </button>
+                            @endif
                         </div>
                         <div class="form-text small text-muted">Chỉnh sửa tên bài giảng và nút Cập nhật sẽ tự động xuất hiện.</div>
                     </div>
@@ -344,9 +360,19 @@ $activeTab = request('tab', 'content');
                                     <div class="text-truncate me-2">
                                         <div class="fw-semibold small text-truncate" title="{{ $videoDoc->title }}">{{ $videoDoc->title }}</div>
                                         <div class="small text-muted">{{ $videoDoc->original_name ?: 'Video trực tuyến' }}</div>
+                                        @if($videoDoc->isPending())
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning mt-1"><i class="bi bi-hourglass-split me-1"></i>Chờ Admin duyệt</span>
+                                        @elseif($videoDoc->isRejected())
+                                        <span class="badge bg-danger-subtle text-danger border border-danger mt-1"><i class="bi bi-x-circle me-1"></i>Bị từ chối</span>
+                                        @endif
                                     </div>
                                     <div class="d-flex align-items-center gap-1">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" data-bs-toggle="modal" data-bs-target="#modalAddVideo" title="Đổi hoặc cập nhật video">
+                                        @if($videoDoc->isPending())
+                                        <button type="button" class="btn btn-sm btn-warning py-1 px-2" disabled title="Video đã được gửi và đang chờ Admin duyệt">
+                                            <i class="bi bi-hourglass-split me-1"></i>Đang chờ duyệt
+                                        </button>
+                                        @endif
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" data-bs-toggle="modal" data-bs-target="#editDocumentModal{{ $videoDoc->id }}" title="Đổi hoặc cập nhật video">
                                             <i class="bi bi-pencil me-1"></i>Đổi video
                                         </button>
                                         <form method="POST" action="{{ route('courses.documents.destroy', [$course, $videoDoc]) }}" onsubmit="return confirm('Bạn có chắc muốn xóa video này?')">
@@ -369,6 +395,10 @@ $activeTab = request('tab', 'content');
                                 <i class="bi bi-cloud-arrow-up me-1"></i>Tải lên hoặc dán link video
                             </button>
                         </div>
+                        @endif
+
+                        @if($videoDoc)
+                            @include('documents._edit-modal', ['document' => $videoDoc])
                         @endif
 
                         <!-- Tùy chọn video -->
@@ -424,10 +454,16 @@ $activeTab = request('tab', 'content');
                                                 <span>{{ $doc->typeLabel() }}</span>
                                                 @if($doc->allow_view)<span class="badge bg-info-subtle text-info border">Xem online</span>@endif
                                                 @if($doc->allow_download)<span class="badge bg-success-subtle text-success border">Tải về</span>@endif
+                                                @if($doc->isPending())<span class="badge bg-warning-subtle text-warning-emphasis border border-warning"><i class="bi bi-hourglass-split me-1"></i>Chờ Admin duyệt</span>@elseif($doc->isRejected())<span class="badge bg-danger-subtle text-danger border border-danger"><i class="bi bi-x-circle me-1"></i>Bị từ chối</span>@endif
                                             </div>
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-1">
+                                        @if($doc->isPending())
+                                        <button type="button" class="btn btn-sm btn-warning py-1 px-2" disabled title="Tài liệu đã được gửi và đang chờ Admin duyệt">
+                                            <i class="bi bi-hourglass-split me-1"></i>Đang chờ duyệt
+                                        </button>
+                                        @endif
                                         <button class="btn btn-sm btn-outline-primary py-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#previewDocCollapse{{ $doc->id }}" aria-expanded="false" title="Mở xem tài liệu">
                                             <i class="bi bi-eye me-1"></i>Xem
                                         </button>
@@ -436,9 +472,9 @@ $activeTab = request('tab', 'content');
                                             <i class="bi bi-download"></i>
                                         </a>
                                         @endif
-                                        <a href="{{ route('courses.documents.edit', [$course, $doc]) }}" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Chỉnh sửa">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" data-bs-toggle="modal" data-bs-target="#editDocumentModal{{ $doc->id }}" title="Chỉnh sửa">
                                             <i class="bi bi-pencil"></i>
-                                        </a>
+                                        </button>
                                         <form method="POST" action="{{ route('courses.documents.destroy', [$course, $doc]) }}" onsubmit="return confirm('Bạn có chắc muốn xóa tài liệu này?')">
                                             @csrf
                                             @method('DELETE')
@@ -498,6 +534,7 @@ $activeTab = request('tab', 'content');
                                     </div>
                                 </div>
                             </div>
+                             @include('documents._edit-modal', ['document' => $doc])
                             @endforeach
                         </div>
                         @else
@@ -951,9 +988,9 @@ $activeTab = request('tab', 'content');
                                             <i class="bi bi-download"></i>
                                         </a>
                                     @endif
-                                    <a href="{{ route('courses.documents.edit', [$course, $cDoc]) }}" class="btn btn-outline-secondary" title="Chỉnh sửa">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editDocumentModal{{ $cDoc->id }}" title="Chỉnh sửa">
                                         <i class="bi bi-pencil"></i>
-                                    </a>
+                                    </button>
                                     <form method="POST" action="{{ route('courses.documents.destroy', [$course, $cDoc]) }}" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài liệu này?')" class="d-inline">
                                         @csrf
                                         @method('DELETE')
@@ -963,6 +1000,8 @@ $activeTab = request('tab', 'content');
                                     </form>
                                 </div>
                             </div>
+
+                            @include('documents._edit-modal', ['document' => $cDoc])
 
                             @if(auth()->user()->hasRole('admin'))
                             <!-- MODAL TỪ CHỐI -->
@@ -1286,17 +1325,26 @@ $activeTab = request('tab', 'content');
         // Xử lý hiện nút "Cập nhật" khi có thay đổi tên bài giảng
         const titleInput = document.getElementById('lesson_title_input');
         const updateBtn = document.getElementById('lesson_update_btn');
-        if (titleInput && updateBtn) {
+        const resubmitBtn = document.getElementById('lesson_resubmit_btn');
+        if (titleInput) {
             const originalTitle = titleInput.dataset.original || '';
             titleInput.addEventListener('input', function() {
-                if (this.value.trim() !== originalTitle.trim() && this.value.trim().length > 0) {
-                    updateBtn.classList.remove('d-none');
-                } else {
-                    updateBtn.classList.add('d-none');
-                }
+                const hasChanges = this.value.trim() !== originalTitle.trim() && this.value.trim().length > 0;
+                if (updateBtn) updateBtn.classList.toggle('d-none', !hasChanges);
+                if (resubmitBtn) resubmitBtn.classList.toggle('d-none', !hasChanges);
             });
         }
     });
+
+    window.cancelLessonEdit = function() {
+        const titleInput = document.getElementById('lesson_title_input');
+        const updateBtn = document.getElementById('lesson_update_btn');
+        const resubmitBtn = document.getElementById('lesson_resubmit_btn');
+        if (!titleInput) return;
+        titleInput.value = titleInput.dataset.original || '';
+        if (updateBtn) updateBtn.classList.add('d-none');
+        if (resubmitBtn) resubmitBtn.classList.add('d-none');
+    };
 
     window.setLessonStatus = function(newStatus) {
         const statusInput = document.getElementById('lesson_status_input');

@@ -23,14 +23,34 @@ class Lesson extends Model
         return ($this->status ?? '') === 'published';
     }
 
+    public function isPending(): bool
+    {
+        return ($this->status ?? '') === 'pending';
+    }
+
+    public function isRejected(): bool
+    {
+        return ($this->status ?? '') === 'rejected';
+    }
+
     public function statusLabel(): string
     {
-        return $this->isPublished() ? 'Đã xuất bản' : 'Bản nháp';
+        return match ($this->status ?? 'draft') {
+            'published' => 'Đã xuất bản',
+            'pending' => 'Chờ Quản trị viên duyệt',
+            'rejected' => 'Bị từ chối',
+            default => 'Bản nháp',
+        };
     }
 
     public function statusTone(): string
     {
-        return $this->isPublished() ? 'success' : 'warning';
+        return match ($this->status ?? 'draft') {
+            'published' => 'success',
+            'pending' => 'warning',
+            'rejected' => 'danger',
+            default => 'warning',
+        };
     }
 
     public function chapter(): BelongsTo

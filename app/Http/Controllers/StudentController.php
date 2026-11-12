@@ -51,7 +51,7 @@ class StudentController extends Controller
             'subject',
             'teacher',
             'chapters.lessons' => fn ($query) => $query->where('status', 'published'),
-            'chapters.lessons.documents',
+            'chapters.lessons.documents' => fn ($query) => $query->approved(),
         ]);
 
         return view('student.course-detail', [
@@ -106,7 +106,7 @@ class StudentController extends Controller
         $chapters = $course->chapters()
             ->with([
                 'lessons' => fn ($query) => $query->where('status', 'published'),
-                'lessons.documents',
+                'lessons.documents' => fn ($query) => $query->approved(),
             ])
             ->orderBy('position')
             ->get();

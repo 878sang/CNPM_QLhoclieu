@@ -75,7 +75,7 @@ class Course extends Model
 
         $lessons = $this->lessons()
             ->where('status', 'published')
-            ->with(['documents', 'progresses' => fn ($q) => $q->where('user_id', $user->id)])
+            ->with(['documents' => fn ($q) => $q->approved(), 'progresses' => fn ($q) => $q->where('user_id', $user->id)])
             ->get();
         $totalLessons = $lessons->count();
         if ($totalLessons === 0) {
