@@ -33,7 +33,10 @@
                     <dt class="col-5">Kết thúc</dt>
                     <dd class="col-7">{{ $course->end_at?->format('d/m/Y H:i') ?: 'Chưa cập nhật' }}</dd>
                     <dt class="col-5">Tiến độ</dt>
-                    <dd class="col-7">Chưa có dữ liệu</dd>
+                    <dd class="col-7">
+                        <div class="progress lm-progress mb-1" role="progressbar" aria-label="Tiến độ khóa học" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ $progressPercent }}%"></div></div>
+                        {{ $isEnrolled ? $progressPercent.'% hoàn thành' : 'Chưa tham gia' }}
+                    </dd>
                 </dl>
                 @if ($isEnrolled)
                     <form method="POST" action="{{ route('student.courses.leave', $course) }}" class="mt-4" onsubmit="return confirm('Bạn có chắc muốn rời khỏi khóa học này?')">
@@ -48,16 +51,55 @@
         </div>
     </div>
     @if ($isEnrolled)
+        @php($videos = $documents->filter(fn ($document) => $document->isVideo()))
+        @if ($videos->isNotEmpty())
+            <x-card class="p-4 mt-4">
+                <h2 class="h5 mb-3">Video bài giảng</h2>
+                @foreach ($videos as $video)
+                    @php($progress = $progressByDocument[$video->id] ?? null)
+                    <div class="mb-4" @if ($video->allow_view) data-video-progress @endif>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="fw-semibold">{{ $video->title }}</div>
+                            @if ($video->allow_view)
+                                <span class="small text-muted" data-progress-text>{{ $progress?->completed_at ? 'Đã hoàn thành' : ($progress ? 'Đã xem '.$progress->percent.'%' : 'Chưa xem') }}</span>
+                            @endif
+                        </div>
+                        @if ($video->allow_view)
+                            <video class="w-100 rounded bg-dark" style="max-height: 360px" controls preload="metadata" @unless ($video->allow_download) controlsList="nodownload" oncontextmenu="return false" @endunless
+                                src="{{ route('courses.documents.show', [$course, $video]) }}"
+                                data-progress-url="{{ route('student.documents.progress', $video) }}"
+                                data-token="{{ csrf_token() }}"
+                                data-resume="{{ $progress && ! $progress->completed_at ? $progress->position_seconds : 0 }}"></video>
+                            <div class="progress lm-progress mt-2" role="progressbar" aria-label="Tiến độ {{ $video->title }}" aria-valuenow="{{ $progress?->percent ?? 0 }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" data-progress-bar style="width: {{ $progress?->percent ?? 0 }}%"></div></div>
+                        @else
+                            <p class="text-muted small mb-2">Video này không cho phép xem trực tuyến.</p>
+                        @endif
+                        @if ($video->allow_download)
+                            <x-button :href="route('courses.documents.download', [$course, $video])" variant="outline-secondary" class="btn-sm mt-2"><i class="bi bi-download me-1" aria-hidden="true"></i>Tải video</x-button>
+                        @endif
+                    </div>
+                @endforeach
+            </x-card>
+        @endif
         <x-card class="p-4 mt-4">
             <h2 class="h5 mb-3">Bài tập &amp; tài liệu</h2>
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
-                    <thead><tr><th>Tên bài tập</th><th class="d-none d-md-table-cell">Bài học</th><th class="text-end">Thao tác</th></tr></thead>
+                    <thead><tr><th>Tên bài tập</th><th class="d-none d-md-table-cell">Bài học</th><th>Tiến độ</th><th class="text-end">Thao tác</th></tr></thead>
                     <tbody>
-                        @forelse ($documents as $document)
+                        @forelse ($documents->reject(fn ($document) => $document->isVideo()) as $document)
                             <tr>
                                 <td><div class="fw-semibold">{{ $document->title }}</div><div class="small text-muted">{{ $document->original_name }} · {{ number_format($document->size / 1024, 0, ',', '.') }} KB</div></td>
                                 <td class="d-none d-md-table-cell">{{ $document->lesson ? $document->lesson->chapter->title.' / '.$document->lesson->title : '—' }}</td>
+                                <td>
+                                    @if (! $document->allow_view)
+                                        <span class="small text-muted">—</span>
+                                    @elseif ($progressByDocument[$document->id]?->completed_at ?? false)
+                                        <x-badge tone="success">Đã xem</x-badge>
+                                    @else
+                                        <x-badge tone="secondary">Chưa xem</x-badge>
+                                    @endif
+                                </td>
                                 <td class="text-end text-nowrap">
                                     @if ($document->allow_view)
                                         <x-button :href="route('courses.documents.show', [$course, $document])" variant="outline-primary" class="btn-sm" target="_blank"><i class="bi bi-eye me-1" aria-hidden="true"></i>Xem</x-button>
@@ -71,7 +113,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="3"><x-empty-state title="Chưa có bài tập" message="Giảng viên chưa có bài tập nào được duyệt cho khóa học này." icon="file-earmark" /></td></tr>
+                            <tr><td colspan="4"><x-empty-state title="Chưa có bài tập" message="Giảng viên chưa có bài tập nào được duyệt cho khóa học này." icon="file-earmark" /></td></tr>
                         @endforelse
                     </tbody>
                 </table>

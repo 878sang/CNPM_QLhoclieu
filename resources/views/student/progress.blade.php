@@ -41,12 +41,26 @@
                         <tr>
                             <td class="fw-semibold"><a href="{{ route('student.courses.show', $course) }}">{{ $course->title }}</a></td>
                             <td>{{ $course->subject?->name }}</td>
-                            <td><x-badge tone="secondary">Chưa có dữ liệu tiến độ</x-badge></td>
+                            <td>
+                                @if ($course->progress_percent >= 100)
+                                    <x-badge tone="success">Hoàn thành</x-badge>
+                                @elseif ($course->progress_percent > 0)
+                                    <x-badge tone="primary">Đang học</x-badge>
+                                @else
+                                    <x-badge tone="secondary">Chưa bắt đầu</x-badge>
+                                @endif
+                            </td>
                             <td style="min-width: 180px">
-                                <div class="progress lm-progress">
-                                    <div class="progress-bar" style="width: 0%"></div>
+                                <div class="progress lm-progress" role="progressbar" aria-label="Tiến độ {{ $course->title }}" aria-valuenow="{{ $course->progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar" style="width: {{ $course->progress_percent }}%"></div>
                                 </div>
-                                <small class="text-muted">Chưa có dữ liệu bài học</small>
+                                <small class="text-muted">
+                                    @if ($course->trackable_documents_count > 0)
+                                        {{ $course->progress_percent }}% · {{ $course->completed_documents_count }}/{{ $course->trackable_documents_count }} học liệu
+                                    @else
+                                        Khóa học chưa có học liệu
+                                    @endif
+                                </small>
                             </td>
                         </tr>
                     @empty

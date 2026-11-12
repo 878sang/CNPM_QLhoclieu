@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentProgressController;
 use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\StudentController;
@@ -64,6 +65,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/khoa-hoc/{course}', [StudentController::class, 'show'])->name('courses.show');
         Route::delete('/khoa-hoc/{course}/roi', [StudentController::class, 'leave'])->name('courses.leave');
         Route::get('/tien-do', [StudentController::class, 'progress'])->name('progress');
+        Route::post('/tai-lieu/{document}/tien-do', [DocumentProgressController::class, 'store'])->name('documents.progress');
         Route::get('/tim-hoc-lieu', [StudentController::class, 'search'])->name('search');
         Route::get('/da-luu', fn () => view('placeholder', ['title' => 'Đã lưu']))->name('saved');
     });

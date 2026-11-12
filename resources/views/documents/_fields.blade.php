@@ -2,9 +2,9 @@
 <x-form.input name="title" label="Tên tài liệu" :value="$document?->title" required />
 <div class="mb-3">
     <label for="file" class="form-label">{{ $document ? 'Thay tệp (để trống nếu giữ nguyên)' : 'Tệp tài liệu' }} @if(! $document)<span class="text-accent" aria-hidden="true">*</span>@endif</label>
-    <input type="file" name="file" id="file" class="form-control @error('file') is-invalid @enderror" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" @if(! $document) required @endif>
+    <input type="file" name="file" id="file" class="form-control @error('file') is-invalid @enderror" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.mp4,.webm" @if(! $document) required @endif>
     @error('file')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-    <div class="form-text">PDF, Word, PowerPoint, Excel. Tối đa 20 MB.</div>
+    <div class="form-text">PDF, Word, PowerPoint, Excel (tối đa 20 MB) hoặc video MP4/WebM (tối đa 200 MB).</div>
 </div>
 <div class="mb-3">
     <label for="lesson_id" class="form-label">Gắn vào bài học</label>

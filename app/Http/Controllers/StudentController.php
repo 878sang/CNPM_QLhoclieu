@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\DocumentProgress;
 use App\Models\Subject;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,12 +37,16 @@ class StudentController extends Controller
         $isEnrolled = $course->enrollments()->where('user_id', auth()->id())->exists();
         abort_unless($isEnrolled || $course->status === 'public', 404);
 
+        $documents = $isEnrolled
+            ? $course->documents()->approved()->with('lesson.chapter')->orderBy('title')->get()
+            : collect();
+
         return view('student.course-detail', [
             'course' => $course->load(['subject', 'teacher']),
             'isEnrolled' => $isEnrolled,
-            'documents' => $isEnrolled
-                ? $course->documents()->approved()->with('lesson.chapter')->orderBy('title')->get()
-                : collect(),
+            'documents' => $documents,
+            'progressByDocument' => DocumentProgress::where('user_id', auth()->id())->whereIn('document_id', $documents->pluck('id'))->get()->keyBy('document_id'),
+            'progressPercent' => $isEnrolled ? Course::withProgressFor(auth()->user())->find($course->id)->progress_percent : 0,
         ]);
     }
 
@@ -81,6 +86,7 @@ class StudentController extends Controller
             'enrollments' => fn ($query) => $query->where('user_id', auth()->id()),
         ])
             ->whereHas('enrollments', fn ($query) => $query->where('user_id', auth()->id()))
+            ->withProgressFor(auth()->user())
             ->when($request?->filled('q'), function ($query) use ($request): void {
                 $term = trim((string) $request->input('q'));
                 $query->where(function ($query) use ($term): void {

@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DocumentRequest;
 use App\Models\Course;
 use App\Models\Document;
+use App\Models\DocumentProgress;
 use App\Services\DocumentConverter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
@@ -93,12 +96,21 @@ class DocumentController extends Controller
         return redirect()->route('courses.documents.index', $course)->with('status', 'Đã xóa tài liệu.');
     }
 
-    public function show(Course $course, Document $document): StreamedResponse
+    /**
+     * Phát tệp xem trực tuyến. Dùng BinaryFileResponse để trình phát video tua được (HTTP Range).
+     */
+    public function show(Course $course, Document $document): BinaryFileResponse
     {
         $this->authorizeAccess($course, $document, $document->allow_view);
         $file = $document->viewableFile();
+        $user = auth()->user();
 
-        return Storage::response($file['path'], $file['name'], ['Content-Type' => $file['mime']], 'inline');
+        if (! $document->isVideo() && ! $user->can('update', $course)) {
+            DocumentProgress::markViewed($user, $document);
+        }
+
+        return response()->file(Storage::path($file['path']), ['Content-Type' => $file['mime']])
+            ->setContentDisposition('inline', $file['name'], Str::ascii($file['name']));
     }
 
     public function download(Course $course, Document $document): StreamedResponse

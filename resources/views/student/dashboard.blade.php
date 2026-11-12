@@ -36,13 +36,15 @@
                     </p>
 
                     <div class="progress lm-progress mt-4">
-                        <div class="progress-bar" style="width: 0%"></div>
+                        <div class="progress-bar" style="width: {{ $course->progress_percent }}%"></div>
                     </div>
                     <small class="text-muted">
                         @if ($course->start_at?->isFuture())
                             Khóa học chưa bắt đầu
+                        @elseif ($course->trackable_documents_count > 0)
+                            {{ $course->progress_percent }}% · {{ $course->completed_documents_count }}/{{ $course->trackable_documents_count }} học liệu đã hoàn thành
                         @else
-                            Chưa có dữ liệu tiến độ
+                            Khóa học chưa có học liệu
                         @endif
                     </small>
                 </x-card>

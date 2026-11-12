@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Document extends Model
 {
@@ -44,9 +45,27 @@ class Document extends Model
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
+    public function progress(): HasMany
+    {
+        return $this->hasMany(DocumentProgress::class);
+    }
+
     public function scopeApproved(Builder $query): void
     {
         $query->where('approval_status', self::STATUS_APPROVED);
+    }
+
+    /**
+     * Tài liệu học viên có thể xem và được tính vào tiến độ: đã duyệt và cho phép xem trực tuyến.
+     */
+    public function scopeTrackable(Builder $query): void
+    {
+        $query->approved()->where('allow_view', true);
+    }
+
+    public function isVideo(): bool
+    {
+        return str_starts_with((string) $this->mime_type, 'video/');
     }
 
     public function isApproved(): bool
