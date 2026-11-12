@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DocumentRequest;
 use App\Models\Course;
 use App\Models\Document;
+use App\Services\DocumentConverter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
@@ -14,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
+    public function __construct(private DocumentConverter $converter) {}
+
     public function index(Course $course): View
     {
         $this->authorize('update', $course);
@@ -41,7 +44,7 @@ class DocumentController extends Controller
 
     public function update(DocumentRequest $request, Course $course, Document $document): RedirectResponse
     {
-        $previousPath = $document->file_path;
+        $previousPaths = array_filter([$document->file_path, $document->pdf_path]);
         $data = $request->safe()->except('file');
 
         if ($request->hasFile('file')) {
@@ -51,7 +54,7 @@ class DocumentController extends Controller
         $document->update($data);
 
         if ($request->hasFile('file')) {
-            Storage::delete($previousPath);
+            Storage::delete($previousPaths);
         }
 
         return redirect()->route('courses.documents.index', $course)->with('status', 'Đã cập nhật tài liệu.');
@@ -62,29 +65,30 @@ class DocumentController extends Controller
         $this->authorize('update', $course);
 
         $document->delete();
-        Storage::delete($document->file_path);
+        Storage::delete(array_filter([$document->file_path, $document->pdf_path]));
 
         return redirect()->route('courses.documents.index', $course)->with('status', 'Đã xóa tài liệu.');
     }
 
     public function show(Course $course, Document $document): StreamedResponse
     {
-        $this->authorizeAccess($course, $document->allow_view);
+        $this->authorizeAccess($course, $document, $document->allow_view);
+        $file = $document->viewableFile();
 
-        return Storage::response($document->file_path, $document->original_name, ['Content-Type' => $document->mime_type], 'inline');
+        return Storage::response($file['path'], $file['name'], ['Content-Type' => $file['mime']], 'inline');
     }
 
     public function download(Course $course, Document $document): StreamedResponse
     {
-        $this->authorizeAccess($course, $document->allow_download);
+        $this->authorizeAccess($course, $document, $document->allow_download);
 
         return Storage::download($document->file_path, $document->original_name);
     }
 
     /**
-     * Course managers always pass; students need an active enrollment and the matching flag.
+     * Course managers always pass; students need an active enrollment, an approved document and the matching flag.
      */
-    private function authorizeAccess(Course $course, bool $flagAllows): void
+    private function authorizeAccess(Course $course, Document $document, bool $flagAllows): void
     {
         $user = auth()->user();
 
@@ -92,19 +96,32 @@ class DocumentController extends Controller
             return;
         }
 
-        abort_unless($flagAllows && $course->enrollments()->where('user_id', $user->id)->where('status', 'active')->exists(), 403);
+        abort_unless($flagAllows && $document->isApproved() && $course->enrollments()->where('user_id', $user->id)->where('status', 'active')->exists(), 403);
     }
 
     /**
-     * @return array{file_path: string, original_name: string, mime_type: string, size: int}
+     * Lưu tệp, chuyển Word/PowerPoint sang PDF và đặt lại trạng thái duyệt (Admin tải lên thì tự duyệt).
+     *
+     * @return array<string, mixed>
      */
     private function fileAttributes(UploadedFile $file): array
     {
+        $path = $file->store('documents');
+        $needsConversion = $this->converter->needsConversion($path);
+        $pdfPath = $needsConversion ? $this->converter->convertToPdf($path) : null;
+        $isAdmin = auth()->user()->hasRole('admin');
+
         return [
-            'file_path' => $file->store('documents'),
+            'file_path' => $path,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType() ?? 'application/octet-stream',
             'size' => $file->getSize(),
+            'pdf_path' => $pdfPath,
+            'conversion_status' => ! $needsConversion ? 'not_needed' : ($pdfPath ? 'converted' : 'failed'),
+            'approval_status' => $isAdmin ? Document::STATUS_APPROVED : Document::STATUS_PENDING,
+            'rejection_reason' => null,
+            'reviewed_by' => $isAdmin ? auth()->id() : null,
+            'reviewed_at' => $isAdmin ? now() : null,
         ];
     }
 

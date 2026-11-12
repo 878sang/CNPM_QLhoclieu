@@ -39,6 +39,9 @@ class StudentController extends Controller
         return view('student.course-detail', [
             'course' => $course->load(['subject', 'teacher']),
             'isEnrolled' => $isEnrolled,
+            'documents' => $isEnrolled
+                ? $course->documents()->approved()->with('lesson.chapter')->orderBy('title')->get()
+                : collect(),
         ]);
     }
 

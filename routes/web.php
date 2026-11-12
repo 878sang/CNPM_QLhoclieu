@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
@@ -30,6 +31,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/tai-khoan', [AdminController::class, 'users'])->name('users.index');
         Route::get('/tai-khoan/tao-moi', [AdminController::class, 'createUser'])->name('users.create');
         Route::post('/tai-khoan', [AdminController::class, 'storeUser'])->name('users.store');
+        Route::get('/bai-tap', [DocumentReviewController::class, 'index'])->name('documents.index');
+        Route::post('/bai-tap/{document}/duyet', [DocumentReviewController::class, 'approve'])->name('documents.approve');
+        Route::post('/bai-tap/{document}/tu-choi', [DocumentReviewController::class, 'reject'])->name('documents.reject');
         Route::resource('mon-hoc', SubjectController::class)->parameters(['mon-hoc' => 'subject'])->except(['show'])->names('subjects');
     });
     Route::get('/quan-ly-khoa-hoc', [CourseController::class, 'index'])->middleware('role:teacher')->name('teacher.dashboard');

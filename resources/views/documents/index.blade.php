@@ -14,7 +14,7 @@
 <x-card class="p-3 p-md-4">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
-            <thead><tr><th>Tài liệu</th><th class="d-none d-md-table-cell">Bài học</th><th>Quyền</th><th class="text-end">Thao tác</th></tr></thead>
+            <thead><tr><th>Tài liệu</th><th class="d-none d-md-table-cell">Bài học</th><th>Quyền</th><th>Duyệt</th><th class="text-end">Thao tác</th></tr></thead>
             <tbody>
                 @forelse($documents as $document)
                     <tr>
@@ -23,6 +23,12 @@
                         <td>
                             <x-badge :tone="$document->allow_view ? 'success' : 'secondary'">Xem</x-badge>
                             <x-badge :tone="$document->allow_download ? 'success' : 'secondary'">Tải về</x-badge>
+                        </td>
+                        <td>
+                            @include('documents._status-badge', ['document' => $document])
+                            @if ($document->approval_status === 'rejected')
+                                <div class="small text-danger mt-1">Lý do: {{ $document->rejection_reason }}</div>
+                            @endif
                         </td>
                         <td class="text-end text-nowrap">
                             <x-button :href="route('courses.documents.show', [$course, $document])" variant="outline-primary" class="btn-sm" target="_blank">Xem</x-button>
@@ -35,7 +41,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4"><x-empty-state title="Chưa có tài liệu" message="Hãy tải lên tài liệu đầu tiên cho khóa học." icon="file-earmark" /></td></tr>
+                    <tr><td colspan="5"><x-empty-state title="Chưa có tài liệu" message="Hãy tải lên tài liệu đầu tiên cho khóa học." icon="file-earmark" /></td></tr>
                 @endforelse
             </tbody>
         </table>

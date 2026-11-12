@@ -40,4 +40,8 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'libreoffice' => [
+        'binary' => env('LIBREOFFICE_BINARY', 'soffice'),
+    ],
+
 ];

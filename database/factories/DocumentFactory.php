@@ -22,6 +22,17 @@ class DocumentFactory extends Factory
             'size' => 1024,
             'allow_view' => true,
             'allow_download' => false,
+            'approval_status' => Document::STATUS_APPROVED,
         ];
+    }
+
+    public function pending(): static
+    {
+        return $this->state(['approval_status' => Document::STATUS_PENDING]);
+    }
+
+    public function rejected(string $reason = 'Nội dung chưa phù hợp.'): static
+    {
+        return $this->state(['approval_status' => Document::STATUS_REJECTED, 'rejection_reason' => $reason]);
     }
 }
