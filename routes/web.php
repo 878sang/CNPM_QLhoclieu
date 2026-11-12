@@ -37,7 +37,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('mon-hoc', SubjectController::class)->parameters(['mon-hoc' => 'subject'])->except(['show'])->names('subjects');
     });
     Route::get('/quan-ly-khoa-hoc', [CourseController::class, 'index'])->middleware('role:teacher')->name('teacher.dashboard');
-    Route::get('/tai-lieu', fn () => view('placeholder', ['title' => 'Tài liệu']))->middleware('role:teacher')->name('teacher.materials');
+    Route::get('/tai-lieu', [DocumentController::class, 'manage'])->middleware('role:teacher')->name('teacher.materials');
     Route::get('/thong-ke', fn () => view('placeholder', ['title' => 'Thống kê']))->middleware('role:teacher')->name('teacher.statistics');
     Route::middleware('role:admin,teacher')->prefix('khoa-hoc')->name('courses.')->group(function () {
         Route::get('/', [CourseController::class, 'index'])->name('index');

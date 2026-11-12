@@ -215,6 +215,26 @@ class DocumentReviewTest extends TestCase
         $this->get(route('courses.documents.download', [$this->course, $document]))->assertOk()->assertDownload('bai.docx');
     }
 
+    public function test_teacher_manages_only_documents_of_own_courses_with_filters(): void
+    {
+        $otherCourse = Course::factory()->create();
+        $this->storedDocument(['title' => 'Bài của tôi']);
+        $this->storedDocument(['title' => 'Bài chờ', 'approval_status' => Document::STATUS_PENDING]);
+        Document::factory()->create(['course_id' => $otherCourse->id, 'title' => 'Bài người khác']);
+        $this->actingAs($this->teacher);
+
+        $this->get(route('teacher.materials'))->assertOk()->assertSee('Bài của tôi')->assertSee('Bài chờ')->assertDontSee('Bài người khác');
+        $this->get(route('teacher.materials', ['status' => 'pending']))->assertSee('Bài chờ')->assertDontSee('Bài của tôi');
+        $this->get(route('teacher.materials', ['q' => 'của tôi']))->assertSee('Bài của tôi')->assertDontSee('Bài chờ');
+        $this->get(route('teacher.materials', ['course_id' => $otherCourse->id]))->assertDontSee('Bài của tôi');
+    }
+
+    public function test_only_teachers_open_the_manage_page(): void
+    {
+        $this->actingAs($this->student)->get(route('teacher.materials'))->assertForbidden();
+        $this->actingAs($this->admin)->get(route('teacher.materials'))->assertForbidden();
+    }
+
     public function test_course_detail_hides_documents_from_unenrolled_student(): void
     {
         $course = Course::factory()->create(['status' => 'public']);

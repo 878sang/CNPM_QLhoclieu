@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Services\DocumentConverter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -25,6 +26,28 @@ class DocumentController extends Controller
             'course' => $course,
             'documents' => $course->documents()->with('lesson.chapter')->latest()->paginate(10),
             'chapters' => $this->chaptersWithLessons($course),
+        ]);
+    }
+
+    /**
+     * Trang quản lý bài tập của giảng viên: mọi tài liệu thuộc các khóa học do họ phụ trách.
+     */
+    public function manage(Request $request): View
+    {
+        $courses = Course::where('teacher_id', auth()->id())->orderBy('title')->get();
+        $status = $request->query('status');
+
+        return view('documents.manage', [
+            'courses' => $courses,
+            'documents' => Document::with(['course', 'lesson.chapter'])
+                ->whereIn('course_id', $courses->modelKeys())
+                ->when($request->filled('course_id'), fn ($query) => $query->where('course_id', $request->query('course_id')))
+                ->when(in_array($status, Document::STATUSES, true), fn ($query) => $query->where('approval_status', $status))
+                ->when($request->filled('q'), fn ($query) => $query->where('title', 'like', '%'.trim((string) $request->query('q')).'%'))
+                ->latest()
+                ->paginate(10)
+                ->withQueryString(),
+            'counts' => Document::whereIn('course_id', $courses->modelKeys())->selectRaw('approval_status, count(*) as total')->groupBy('approval_status')->pluck('total', 'approval_status'),
         ]);
     }
 

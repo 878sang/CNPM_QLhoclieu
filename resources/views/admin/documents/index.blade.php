@@ -51,6 +51,12 @@
                                     <x-button variant="success" class="btn-sm">Duyệt</x-button>
                                 </form>
                             @endunless
+                            <x-button :href="route('courses.documents.edit', [$document->course, $document])" variant="outline-secondary" class="btn-sm">Sửa</x-button>
+                            <form method="POST" action="{{ route('courses.documents.destroy', [$document->course, $document]) }}" class="d-inline" onsubmit="return confirm('Xóa bài tập này?')">
+                                @csrf
+                                @method('DELETE')
+                                <x-button variant="outline-danger" class="btn-sm">Xóa</x-button>
+                            </form>
                             @if ($document->approval_status !== 'rejected')
                                 <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#reject-{{ $document->id }}">Từ chối</button>
                             @endif
