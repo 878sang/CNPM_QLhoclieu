@@ -66,18 +66,29 @@
                         @enderror
                     </div>
 
-                    <div class="mb-3">
-                        <label for="cover_image" class="form-label">Ảnh bìa</label>
-                        @if ($coverImageUrl)
-                            <div class="mb-2">
-                                <img src="{{ $coverImageUrl }}" alt="Ảnh bìa hiện tại" class="img-thumbnail" style="max-height: 140px">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Ảnh bìa khóa học</label>
+                        <div class="d-flex flex-wrap align-items-center gap-3 p-3 bg-light rounded border">
+                            <div class="position-relative border rounded overflow-hidden bg-white shadow-sm flex-shrink-0" style="width: 200px; height: 112px;">
+                                <img id="cover_preview" src="{{ $coverImageUrl ?: asset('images/default-course.svg') }}" alt="Ảnh bìa" class="w-100 h-100 object-fit-cover">
                             </div>
-                        @endif
-                        <input type="file" name="cover_image" id="cover_image" accept=".jpg,.jpeg,.png,.webp" class="form-control @error('cover_image') is-invalid @enderror">
+                            <div class="flex-grow-1">
+                                <div class="small text-muted mb-2">Xem trước ảnh bìa (chuẩn tỷ lệ 16:9). Nếu không tải ảnh, hệ thống sẽ sử dụng ảnh mặc định.</div>
+                                <label for="cover_image" class="btn btn-sm btn-outline-primary mb-1 cursor-pointer">
+                                    <i class="bi bi-cloud-arrow-up me-1"></i>Tải ảnh lên từ máy tính
+                                </label>
+                                <input type="file" name="cover_image" id="cover_image" accept=".jpg,.jpeg,.png,.webp" class="d-none @error('cover_image') is-invalid @enderror" onchange="previewCoverImage(this)">
+                                @if($coverImageUrl)
+                                    <span class="badge bg-success-subtle text-success border ms-2">Đang có ảnh tùy chỉnh</span>
+                                @else
+                                    <span class="badge bg-secondary-subtle text-secondary border ms-2">Đang dùng ảnh mặc định</span>
+                                @endif
+                                <div class="form-text small mt-1">Định dạng JPG, PNG hoặc WEBP, tối đa 2 MB.</div>
+                            </div>
+                        </div>
                         @error('cover_image')
                             <div class="invalid-feedback d-block">{{ $message }}</div>
                         @enderror
-                        <div class="form-text">JPG, PNG hoặc WEBP, tối đa 2 MB.</div>
                     </div>
 
                     <div class="mb-3">
@@ -121,4 +132,18 @@
             </x-card>
         </div>
     </div>
+    <script>
+        function previewCoverImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('cover_preview');
+                    if (preview) {
+                        preview.src = e.target.result;
+                    }
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
 @endsection

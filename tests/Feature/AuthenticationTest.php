@@ -64,6 +64,17 @@ class AuthenticationTest extends TestCase
         $this->actingAs(User::where('role_id', $roles['student']->id)->first())->get(route('teacher.dashboard'))->assertForbidden();
     }
 
+    public function test_authenticated_user_can_access_unified_dashboard(): void
+    {
+        $this->get(route('dashboard'))->assertRedirect(route('login'));
+
+        $roles = ['student', 'teacher', 'admin'];
+        foreach ($roles as $roleName) {
+            $user = $this->user($roleName);
+            $this->actingAs($user)->get(route('dashboard'))->assertOk();
+        }
+    }
+
     public function test_course_and_user_policies_enforce_ownership_and_admin_access(): void
     {
         $teacherRole = Role::create(['name' => 'teacher', 'display_name' => 'teacher']);

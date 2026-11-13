@@ -51,20 +51,26 @@
                     <span class="font-mono small text-muted">{{ $courseList->count() }} khóa</span>
                 </div>
 
-                <div class="row g-3">
+                <div class="d-flex flex-column gap-3">
                     @forelse($courseList as $course)
-                        <div class="col-md-6">
-                            <div class="lm-card lm-card-hover p-3 h-100">
-                                <div class="d-flex justify-content-between mb-3">
-                                    <span class="text-brand">
-                                        <i class="bi bi-journal-bookmark fs-4" aria-hidden="true"></i>
-                                    </span>
-                                    <x-badge tone="primary">{{ $course->subject?->name }}</x-badge>
+                        <div class="card border rounded-3 overflow-hidden shadow-2xs hover-shadow transition-all bg-white p-2">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded overflow-hidden border flex-shrink-0" style="width: 120px; height: 75px;">
+                                    <img src="{{ $course->cover_url }}" alt="{{ $course->title }}" class="w-100 h-100 object-fit-cover">
                                 </div>
-                                <h3 class="h5">{{ $course->title }}</h3>
-                                <p class="small lm-text-muted mb-0">
-                                    {{ Str::limit($course->description, 100) }}
-                                </p>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <x-badge tone="primary">{{ $course->subject?->name }}</x-badge>
+                                    </div>
+                                    <h3 class="h6 mb-1 fw-bold">
+                                        <a href="{{ auth()->user()->hasRole('student') ? route('student.courses.show', $course) : route('courses.show', $course) }}" class="text-dark text-decoration-none hover-primary">
+                                            {{ $course->title }}
+                                        </a>
+                                    </h3>
+                                    <p class="small text-muted mb-0 text-truncate" style="max-width: 400px;">
+                                        {{ $course->description ?: 'Khóa học ôn luyện trọng tâm kiến thức.' }}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     @empty

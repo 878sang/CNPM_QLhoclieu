@@ -5,13 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Course;
 use App\Models\Subject;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     public function index(): View
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $role = $user->role?->name;
 
         $courseList = match ($role) {

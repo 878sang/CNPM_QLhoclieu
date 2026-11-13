@@ -11,7 +11,47 @@ class Lesson extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['chapter_id', 'title', 'position'];
+    protected $fillable = ['chapter_id', 'title', 'position', 'status'];
+
+    public function isDraft(): bool
+    {
+        return ($this->status ?? 'draft') === 'draft';
+    }
+
+    public function isPublished(): bool
+    {
+        return ($this->status ?? '') === 'published';
+    }
+
+    public function isPending(): bool
+    {
+        return ($this->status ?? '') === 'pending';
+    }
+
+    public function isRejected(): bool
+    {
+        return ($this->status ?? '') === 'rejected';
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status ?? 'draft') {
+            'published' => 'Đã xuất bản',
+            'pending' => 'Chờ Quản trị viên duyệt',
+            'rejected' => 'Bị từ chối',
+            default => 'Bản nháp',
+        };
+    }
+
+    public function statusTone(): string
+    {
+        return match ($this->status ?? 'draft') {
+            'published' => 'success',
+            'pending' => 'warning',
+            'rejected' => 'danger',
+            default => 'warning',
+        };
+    }
 
     public function chapter(): BelongsTo
     {
@@ -21,5 +61,62 @@ class Lesson extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+
+    public function progresses(): HasMany
+    {
+        return $this->hasMany(Progress::class);
+    }
+
+    public function isCompletedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->progresses()
+            ->where('user_id', $user->id)
+            ->where('is_completed', true)
+            ->exists();
+    }
+
+    public function lastPositionFor(?User $user): int
+    {
+        if (! $user) {
+            return 0;
+        }
+
+        return (int) ($this->progresses()
+            ->where('user_id', $user->id)
+            ->value('last_position_seconds') ?? 0);
+    }
+
+    public function progressPercentageFor(?User $user): int
+    {
+        if (! $user) {
+            return 0;
+        }
+
+        $progress = $this->relationLoaded('progresses')
+            ? $this->progresses->firstWhere('user_id', $user->id)
+            : $this->progresses()->where('user_id', $user->id)->first();
+
+        if (! $progress) {
+            return 0;
+        }
+
+        if ($progress->is_completed) {
+            return 100;
+        }
+
+        $hasVideo = $this->relationLoaded('documents')
+            ? $this->documents->contains(fn ($d) => $d->isVideo())
+            : $this->documents()->get()->contains(fn ($d) => $d->isVideo());
+
+        if ($hasVideo) {
+            return $progress->watchedPercentage();
+        }
+
+        return 0;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,10 @@ class SubjectRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasRole('admin') ?? false;
+        /** @var User|null $user */
+        $user = $this->user();
+
+        return $user?->hasRole('admin') ?? false;
     }
 
     public function rules(): array

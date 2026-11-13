@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,10 @@ class StoreEnrollmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('course'));
+        /** @var User $user */
+        $user = $this->user();
+
+        return $user && $user->can('update', $this->route('course'));
     }
 
     public function rules(): array

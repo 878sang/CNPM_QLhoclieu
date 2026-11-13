@@ -15,9 +15,12 @@ class CourseController extends Controller
 {
     public function index(Request $request): View
     {
+        /** @var User $user */
+        $user = $request->user();
+
         $courses = Course::with(['subject', 'teacher'])
             ->withCount('enrollments')
-            ->unless($request->user()->hasRole('admin'), fn ($query) => $query->where('teacher_id', $request->user()->id))
+            ->unless($user->hasRole('admin'), fn ($query) => $query->where('teacher_id', $user->id))
             ->when($request->filled('q'), function ($query) use ($request): void {
                 $term = trim((string) $request->input('q'));
                 $query->where(function ($query) use ($term): void {
@@ -71,7 +74,7 @@ class CourseController extends Controller
         $this->authorize('view', $course);
 
         return view('courses.show', [
-            'course' => $course->load(['subject', 'teacher']),
+            'course' => $course->load(['subject', 'teacher', 'chapters.lessons.documents', 'enrollments.user', 'progresses.user']),
         ]);
     }
 
@@ -111,14 +114,17 @@ class CourseController extends Controller
      */
     private function formData(Course $course): array
     {
+        /** @var User $user */
+        $user = auth()->user();
+
         return [
             'course' => $course,
-            'layout' => auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.teacher',
+            'layout' => $user->hasRole('admin') ? 'layouts.admin' : 'layouts.teacher',
             'coverImageUrl' => $course->cover_image
                 ? Storage::disk('public')->url($course->cover_image)
                 : null,
             'subjects' => Subject::orderBy('name')->get(),
-            'teachers' => auth()->user()->hasRole('admin')
+            'teachers' => $user->hasRole('admin')
                 ? User::whereRelation('role', 'name', 'teacher')->orderBy('name')->get()
                 : collect(),
         ];

@@ -7,6 +7,7 @@ use App\Models\Enrollment;
 use App\Models\Role;
 use App\Models\Subject;
 use App\Models\User;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -85,7 +86,10 @@ class CourseManagementTest extends TestCase
         $this->actingAs($this->teacher)->post(route('courses.store'), $this->payload(['cover_image' => UploadedFile::fake()->create('old.jpg', 100, 'image/jpeg')]));
         $course = Course::first();
         $oldCover = $course->cover_image;
-        Storage::disk('public')->assertExists($oldCover);
+
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+        $disk->assertExists($oldCover);
 
         $this->get(route('courses.edit', $course))->assertOk()->assertSee($course->title);
         $this->put(route('courses.update', $course), $this->payload(['title' => 'Tên mới', 'cover_image' => UploadedFile::fake()->create('new.png', 100, 'image/png')]))->assertRedirect(route('courses.index'));
@@ -93,8 +97,8 @@ class CourseManagementTest extends TestCase
         $course->refresh();
         $this->assertSame('Tên mới', $course->title);
         $this->assertNotSame($oldCover, $course->cover_image);
-        Storage::disk('public')->assertMissing($oldCover);
-        Storage::disk('public')->assertExists($course->cover_image);
+        $disk->assertMissing($oldCover);
+        $disk->assertExists($course->cover_image);
     }
 
     public function test_updating_without_new_cover_keeps_existing_one(): void
