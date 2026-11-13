@@ -6,6 +6,8 @@ use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentProgressController;
+use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\StudentController;
@@ -36,6 +38,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/tai-khoan', [AdminController::class, 'users'])->name('users.index');
         Route::get('/tai-khoan/tao-moi', [AdminController::class, 'createUser'])->name('users.create');
         Route::post('/tai-khoan', [AdminController::class, 'storeUser'])->name('users.store');
+        Route::get('/bai-tap', [DocumentReviewController::class, 'index'])->name('documents.index');
+        Route::post('/bai-tap/{document}/duyet', [DocumentReviewController::class, 'approve'])->name('documents.approve');
+        Route::post('/bai-tap/{document}/tu-choi', [DocumentReviewController::class, 'reject'])->name('documents.reject');
         Route::resource('mon-hoc', SubjectController::class)->parameters(['mon-hoc' => 'subject'])->except(['show'])->names('subjects');
         Route::get('/tai-lieu', [DocumentController::class, 'adminIndex'])->name('documents.index');
         Route::post('/tai-lieu', [DocumentController::class, 'adminStore'])->name('documents.store');
@@ -46,6 +51,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::get('/quan-ly-khoa-hoc', [CourseController::class, 'index'])->middleware('role:teacher')->name('teacher.dashboard');
+    Route::get('/tai-lieu', [DocumentController::class, 'manage'])->middleware('role:teacher')->name('teacher.materials');
     Route::middleware('role:teacher')->prefix('giang-vien')->name('teacher.materials.')->group(function () {
         Route::get('/tai-lieu', [DocumentController::class, 'teacherIndex'])->name('index');
         Route::post('/tai-lieu', [DocumentController::class, 'teacherStore'])->name('store');
@@ -98,6 +104,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/khoa-hoc/{course}/bai-hoc/{lesson}/vi-tri-video', [StudentController::class, 'updateVideoPosition'])->name('lessons.video_position');
         Route::delete('/khoa-hoc/{course}/roi', [StudentController::class, 'leave'])->name('courses.leave');
         Route::get('/tien-do', [StudentController::class, 'progress'])->name('progress');
+        Route::post('/tai-lieu/{document}/tien-do', [DocumentProgressController::class, 'store'])->name('documents.progress');
         Route::get('/tim-hoc-lieu', [StudentController::class, 'search'])->name('search');
         Route::get('/da-luu', fn () => view('placeholder', ['title' => 'Đã lưu']))->name('saved');
     });

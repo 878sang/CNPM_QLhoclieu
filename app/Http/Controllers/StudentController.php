@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\DocumentProgress;
 use App\Models\Lesson;
 use App\Models\Progress;
 use App\Models\Subject;
@@ -54,9 +55,16 @@ class StudentController extends Controller
             'chapters.lessons.documents' => fn ($query) => $query->approved(),
         ]);
 
+        $documents = $isEnrolled
+            ? $course->documents()->approved()->with('lesson.chapter')->orderBy('title')->get()
+            : collect();
+
         return view('student.course-detail', [
             'course' => $course,
             'isEnrolled' => $isEnrolled,
+            'documents' => $documents,
+            'progressByDocument' => DocumentProgress::where('user_id', auth()->id())->whereIn('document_id', $documents->pluck('id'))->get()->keyBy('document_id'),
+            'progressPercent' => $isEnrolled ? Course::withProgressFor(auth()->user())->find($course->id)->progress_percent : 0,
             'percentage' => $course->progressPercentageFor($user),
             'progressStatus' => $course->progressStatusFor($user),
             'lastLesson' => $course->lastStudiedLessonFor($user),
@@ -255,6 +263,8 @@ class StudentController extends Controller
             'chapters.lessons' => fn ($query) => $query->where('status', 'published'),
             'progresses' => fn ($query) => $query->where('user_id', $userId),
         ])
+            ->whereHas('enrollments', fn ($query) => $query->where('user_id', auth()->id()))
+            ->withProgressFor(auth()->user())
             ->whereHas('enrollments', fn ($query) => $query->where('user_id', $userId))
             ->when($request?->filled('q'), function ($query) use ($request): void {
                 $term = trim((string) $request->input('q'));

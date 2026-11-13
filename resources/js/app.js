@@ -61,3 +61,50 @@ if (studentSearch) {
     checkboxes.forEach((checkbox) => checkbox.addEventListener('change', update));
     update();
 }
+
+document.querySelectorAll('[data-video-progress]').forEach((wrapper) => {
+    const video = wrapper.querySelector('video');
+    const bar = wrapper.querySelector('[data-progress-bar]');
+    const text = wrapper.querySelector('[data-progress-text]');
+    let lastSent = 0;
+
+    const send = () => {
+        if (!video.duration) {
+            return;
+        }
+
+        const duration = Math.round(video.duration);
+        const position = video.ended ? duration : Math.min(Math.round(video.currentTime), duration);
+
+        fetch(video.dataset.progressUrl, {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': video.dataset.token },
+            body: JSON.stringify({ position, duration }),
+        })
+            .then((response) => (response.ok ? response.json() : null))
+            .then((data) => {
+                if (!data) {
+                    return;
+                }
+
+                bar.style.width = `${data.percent}%`;
+                text.textContent = data.completed ? 'Đã hoàn thành' : `Đã xem ${data.percent}%`;
+            });
+    };
+
+    video.addEventListener('loadedmetadata', () => {
+        const resume = Number(video.dataset.resume || 0);
+
+        if (resume > 0 && resume < video.duration - 5) {
+            video.currentTime = resume;
+        }
+    });
+    video.addEventListener('timeupdate', () => {
+        if (Date.now() - lastSent >= 10000) {
+            lastSent = Date.now();
+            send();
+        }
+    });
+    ['pause', 'ended'].forEach((eventName) => video.addEventListener(eventName, send));
+});

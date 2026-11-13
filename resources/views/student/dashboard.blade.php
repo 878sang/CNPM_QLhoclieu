@@ -45,6 +45,31 @@
                             <x-badge :tone="$statusTone">{{ $statusLabel }}</x-badge>
                         </div>
                     </div>
+
+                    <h2 class="h5 mt-3">{{ $course->title }}</h2>
+                    <p class="small lm-text-muted mb-0">
+                        {{ Str::limit($course->description, 100) }}
+                    </p>
+
+                    <div class="progress lm-progress mt-4">
+                        <div class="progress-bar" style="width: {{ $course->progress_percent }}%"></div>
+                    </div>
+                    <small class="text-muted">
+                        @if ($course->start_at?->isFuture())
+                            Khóa học chưa bắt đầu
+                        @elseif ($course->trackable_documents_count > 0)
+                            {{ $course->progress_percent }}% · {{ $course->completed_documents_count }}/{{ $course->trackable_documents_count }} học liệu đã hoàn thành
+                        @else
+                            Khóa học chưa có học liệu
+                        @endif
+                    </small>
+                </x-card>
+                </a>
+                <form method="POST" action="{{ route('student.courses.leave', $course) }}" class="mt-2" onsubmit="return confirm('Bạn có chắc muốn rời khỏi khóa học này?')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">Rời khóa học</button>
+                </form>
                     <div class="col-md-5 col-lg-6 p-3 p-lg-4">
                         <div class="d-flex align-items-center gap-2 mb-1 text-muted small">
                             <span><i class="bi bi-person-circle me-1"></i>{{ $course->teacher?->name ?: 'Giảng viên' }}</span>

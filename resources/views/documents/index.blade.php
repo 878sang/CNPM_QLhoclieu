@@ -46,6 +46,8 @@
     </div>
 
     <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Tài liệu</th><th class="d-none d-md-table-cell">Bài học</th><th>Quyền</th><th>Duyệt</th><th class="text-end">Thao tác</th></tr></thead>
         <table class="table align-middle mb-0 table-hover">
             <thead class="table-light">
                 <tr>
@@ -104,6 +106,12 @@
                                 <div><i class="bi bi-download me-1"></i>{{ $document->downloads_count ?? 0 }} tải</div>
                             </div>
                         </td>
+                        <td>
+                            @include('documents._status-badge', ['document' => $document])
+                            @if ($document->approval_status === 'rejected')
+                                <div class="small text-danger mt-1">Lý do: {{ $document->rejection_reason }}</div>
+                            @endif
+                        </td>
                         <td class="text-end text-nowrap">
                             <div class="btn-group btn-group-sm">
                                 <a href="{{ route('courses.documents.show', [$course, $document]) }}" target="_blank" class="btn btn-outline-primary" title="Xem trước học liệu">
@@ -129,6 +137,7 @@
                         </td>
                     </tr>
                 @empty
+                    <tr><td colspan="5"><x-empty-state title="Chưa có tài liệu" message="Hãy tải lên tài liệu đầu tiên cho khóa học." icon="file-earmark" /></td></tr>
                     <tr>
                         <td colspan="6">
                             <x-empty-state

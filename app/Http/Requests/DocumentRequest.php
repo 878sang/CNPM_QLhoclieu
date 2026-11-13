@@ -52,6 +52,13 @@ class DocumentRequest extends FormRequest
 
     public function rules(): array
     {
+        $course = $this->route('course');
+        $isVideo = in_array(strtolower((string) $this->file('file')?->getClientOriginalExtension()), ['mp4', 'webm'], true);
+
+        return [
+            'title' => ['required', 'string', 'max:255'],
+            'file' => [$this->route('document') ? 'nullable' : 'required', 'file', 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,mp4,webm', 'max:'.($isVideo ? 204800 : 20480)],
+            'lesson_id' => ['nullable', Rule::exists('lessons', 'id')->whereIn('chapter_id', Chapter::where('course_id', $course->id)->select('id'))],
         $course = $this->route('course') ?? Course::find($this->input('course_id'));
         $document = $this->route('document');
         $type = $this->input('type', 'file');
@@ -107,6 +114,9 @@ class DocumentRequest extends FormRequest
             'type.required' => 'Vui lòng chọn loại tài liệu.',
             'type.in' => 'Loại tài liệu không hợp lệ.',
             'file.required' => 'Vui lòng chọn tệp tài liệu.',
+            'file.mimes' => 'Tài liệu chỉ nhận định dạng PDF, Word, PowerPoint, Excel hoặc video MP4/WebM.',
+            'file.max' => 'Tệp vượt quá dung lượng cho phép (tài liệu tối đa 20 MB, video tối đa 200 MB).',
+            'file.uploaded' => 'Tải tệp lên thất bại. Vui lòng thử lại.',
             'file.extensions' => 'Định dạng tệp không được hỗ trợ. Vui lòng chọn tệp PDF, Word (.doc, .docx), PowerPoint (.ppt, .pptx), Excel (.xls, .xlsx) hoặc TXT.',
             'file.mimes' => 'Định dạng tệp không được hỗ trợ. Vui lòng chọn tệp PDF, Word (.doc, .docx), PowerPoint (.ppt, .pptx), Excel (.xls, .xlsx) hoặc TXT.',
             'file.max' => 'Dung lượng tệp vượt quá giới hạn cho phép (tối đa 20MB cho tài liệu, 500MB cho video).',
