@@ -121,9 +121,17 @@
                             <span class="badge bg-primary ms-1 text-white">{{ $attachedDocs->count() }} file</span>
                         </button>
                     </li>
+                    @if($currentLesson->assignments->isNotEmpty())
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-2" id="st-tab-assignments-head" data-bs-toggle="pill" data-bs-target="#st-tab-assignments-pane" type="button" role="tab">
+                            <i class="bi bi-journal-check me-1 text-success"></i>Bài tập
+                            <span class="badge bg-success ms-1">{{ $currentLesson->assignments->count() }}</span>
+                        </button>
+                    </li>
+                    @endif
                 </ul>
 
-                <!-- NỘI DUNG 2 TAB HỌC TẬP -->
+                <!-- NỘI DUNG CÁC TAB HỌC TẬP -->
                 <div class="tab-content" id="studentLessonTabsContent">
                     <!-- ============================================== -->
                     <!-- TAB 1: VIDEO BÀI GIẢNG                         -->
@@ -354,6 +362,28 @@
                             @endif
                         </div>
                     </div>
+                    @if($currentLesson->assignments->isNotEmpty())
+                    <div class="tab-pane fade" id="st-tab-assignments-pane" role="tabpanel" aria-labelledby="st-tab-assignments-head">
+                        <div class="card border rounded-3 p-3 p-md-4 shadow-2xs">
+                            <h3 class="h6 fw-bold text-dark mb-3"><i class="bi bi-journal-check text-success me-2"></i>Bài tập của bài học</h3>
+                            <div class="d-flex flex-column gap-3">
+                                @foreach($currentLesson->assignments as $assignment)
+                                    <div class="border rounded-3 p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                        <div>
+                                            <h4 class="h6 fw-bold mb-1">{{ $assignment->title }}</h4>
+                                            <div class="small text-muted">{{ $assignment->question_count }} câu · {{ $assignment->deadline ? 'Hạn nộp '.$assignment->deadline->format('d/m/Y H:i') : 'Không giới hạn hạn nộp' }}</div>
+                                            @if($assignment->description)<p class="small text-muted mb-0 mt-2">{{ $assignment->description }}</p>@endif
+                                            @if($assignment->show_answer_to_students)
+                                                <div class="small text-success mt-2"><i class="bi bi-check-circle me-1"></i>Giảng viên đã cho phép xem đáp án khi mở bài tập.</div>
+                                            @endif
+                                        </div>
+                                        <a href="{{ route('student.assignments.do', [$course, $assignment]) }}" class="btn btn-primary btn-sm flex-shrink-0"><i class="bi bi-pencil-square me-1"></i>Làm bài</a>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    @endif
                 </div>
 
                 <!-- ĐIỀU HƯỚNG BÀI TRƯỚC / TIẾP THEO -->

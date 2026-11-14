@@ -40,9 +40,17 @@ class DocumentRequest extends FormRequest
             $title = pathinfo($orig, PATHINFO_FILENAME) ?: $orig;
         }
 
+        $type = $this->input('type', 'file');
+        if ($type === 'file' && $this->hasFile('file')) {
+            $extension = strtolower($this->file('file')->getClientOriginalExtension());
+            if (in_array($extension, ['mp4', 'webm', 'ogg', 'mkv', 'mov'], true)) {
+                $type = 'video';
+            }
+        }
+
         $this->merge([
             'title' => $title !== '' ? $title : ($this->filled('url') ? $this->input('url') : 'Tài liệu'),
-            'type' => $this->input('type', 'file'),
+            'type' => $type,
             'allow_view' => $this->boolean('allow_view'),
             'allow_download' => $this->boolean('allow_download'),
             'lesson_id' => $this->input('lesson_id') ?: null,
@@ -52,13 +60,6 @@ class DocumentRequest extends FormRequest
 
     public function rules(): array
     {
-        $course = $this->route('course');
-        $isVideo = in_array(strtolower((string) $this->file('file')?->getClientOriginalExtension()), ['mp4', 'webm'], true);
-
-        return [
-            'title' => ['required', 'string', 'max:255'],
-            'file' => [$this->route('document') ? 'nullable' : 'required', 'file', 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,mp4,webm', 'max:'.($isVideo ? 204800 : 20480)],
-            'lesson_id' => ['nullable', Rule::exists('lessons', 'id')->whereIn('chapter_id', Chapter::where('course_id', $course->id)->select('id'))],
         $course = $this->route('course') ?? Course::find($this->input('course_id'));
         $document = $this->route('document');
         $type = $this->input('type', 'file');
@@ -89,7 +90,7 @@ class DocumentRequest extends FormRequest
             $rules['url'] = ['required', 'url', 'max:2048'];
         } elseif ($type === 'video') {
             if ($this->hasFile('file')) {
-                $rules['file'] = ['file', 'extensions:mp4,webm,ogg,mkv,mov', 'max:512000']; // 500MB
+                $rules['file'] = ['file', 'extensions:mp4,webm,ogg,mkv,mov', 'max:204800']; // 200MB
             } elseif (! $document && ! $this->filled('url')) {
                 $rules['url'] = ['required_without:file', 'url', 'max:2048'];
             } elseif ($this->filled('url')) {

@@ -49,6 +49,8 @@ class Course extends Model
 
             return $total > 0 ? (int) round((int) $this->completed_documents_count * 100 / $total) : 0;
         });
+    }
+
     public function getCoverUrlAttribute(): string
     {
         if ($this->cover_image && Storage::disk('public')->exists($this->cover_image)) {
@@ -91,6 +93,11 @@ class Course extends Model
     public function progresses(): HasMany
     {
         return $this->hasMany(Progress::class);
+    }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(Assignment::class)->orderBy('created_at', 'desc');
     }
 
     public function progressPercentageFor(?User $user): int

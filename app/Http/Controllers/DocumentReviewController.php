@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\RejectDocumentRequest;
 use App\Models\Document;
+use App\Models\Lesson;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,14 @@ class DocumentReviewController extends Controller
                 ->paginate(10)
                 ->withQueryString(),
             'pendingCount' => Document::where('approval_status', Document::STATUS_PENDING)->count(),
+            'pendingLessons' => Lesson::with(['chapter.course.teacher', 'documents' => fn ($query) => $query->where('approval_status', Document::STATUS_PENDING)])
+                ->where(function ($query): void {
+                    $query->where('status', 'pending')
+                        ->orWhereHas('documents', fn ($documents) => $documents->where('approval_status', Document::STATUS_PENDING));
+                })
+                ->whereHas('chapter.course')
+                ->latest('updated_at')
+                ->get(),
         ]);
     }
 
@@ -30,6 +39,7 @@ class DocumentReviewController extends Controller
     {
         $document->update([
             'approval_status' => Document::STATUS_APPROVED,
+            'status' => Document::STATUS_APPROVED,
             'rejection_reason' => null,
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
@@ -42,6 +52,7 @@ class DocumentReviewController extends Controller
     {
         $document->update([
             'approval_status' => Document::STATUS_REJECTED,
+            'status' => Document::STATUS_REJECTED,
             'rejection_reason' => $request->validated('rejection_reason'),
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),

@@ -10,9 +10,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('documents', function (Blueprint $table) {
+            // approval_status: trạng thái duyệt (pending/approved/rejected) – khác với status (pending/approved)
             $table->string('approval_status', 20)->default('pending')->after('allow_download');
-            $table->text('rejection_reason')->nullable()->after('approval_status');
-            $table->foreignId('reviewed_by')->nullable()->after('rejection_reason')->constrained('users')->nullOnDelete();
+            // rejection_reason đã có từ migration 2026_11_09_082000, không thêm lại
+            $table->foreignId('reviewed_by')->nullable()->after('approval_status')->constrained('users')->nullOnDelete();
             $table->timestamp('reviewed_at')->nullable()->after('reviewed_by');
             $table->string('pdf_path')->nullable()->after('reviewed_at');
             $table->string('conversion_status', 20)->default('not_needed')->after('pdf_path');
@@ -26,7 +27,7 @@ return new class extends Migration
     {
         Schema::table('documents', function (Blueprint $table) {
             $table->dropConstrainedForeignId('reviewed_by');
-            $table->dropColumn(['approval_status', 'rejection_reason', 'reviewed_at', 'pdf_path', 'conversion_status']);
+            $table->dropColumn(['approval_status', 'reviewed_at', 'pdf_path', 'conversion_status']);
         });
     }
 };

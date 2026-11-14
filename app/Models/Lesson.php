@@ -63,6 +63,11 @@ class Lesson extends Model
         return $this->hasMany(Document::class);
     }
 
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(Assignment::class);
+    }
+
     public function progresses(): HasMany
     {
         return $this->hasMany(Progress::class);

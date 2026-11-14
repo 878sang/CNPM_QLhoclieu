@@ -81,6 +81,9 @@
                         <a href="{{ route('courses.students.index', $course) }}" class="btn btn-outline-info btn-sm w-100">
                             <i class="bi bi-people me-1"></i>Quản lý học viên ({{ $course->enrollments_count }})
                         </a>
+                        <a href="{{ route('courses.assignments.index', $course) }}" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="bi bi-journal-check me-1"></i>Quản lý bài tập
+                        </a>
                         <div class="d-flex gap-2">
                             <a href="{{ route('courses.edit', $course) }}" class="btn btn-outline-secondary btn-sm flex-grow-1" title="Chỉnh sửa khóa học">
                                 <i class="bi bi-pencil me-1"></i>Sửa

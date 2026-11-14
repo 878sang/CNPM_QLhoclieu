@@ -6,6 +6,13 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class RejectDocumentRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('reason') && ! $this->filled('rejection_reason')) {
+            $this->merge(['rejection_reason' => $this->input('reason')]);
+        }
+    }
+
     public function authorize(): bool
     {
         return $this->user()->hasRole('admin');

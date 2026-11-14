@@ -89,32 +89,13 @@
                             <div class="progress" style="height: 8px;">
                                 <div class="progress-bar bg-success" role="progressbar" style="width: {{ $percent }}%" aria-valuenow="{{ $percent }}" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
+                            @if (($course->trackable_documents_count ?? 0) > 0)
+                                <small class="text-muted d-block mt-1">
+                                    {{ $course->progress_percent }}% · {{ $course->completed_documents_count }}/{{ $course->trackable_documents_count }} học liệu đã hoàn thành
+                                </small>
+                            @endif
                         </div>
                     </div>
-                    <h2 class="h5 mt-3">{{ $course->title }}</h2>
-                    <p class="small lm-text-muted mb-0">
-                        {{ Str::limit($course->description, 100) }}
-                    </p>
-                    <div class="progress lm-progress mt-4">
-                        <div class="progress-bar" style="width: {{ $course->progress_percent }}%"></div>
-                    </div>
-                    <small class="text-muted">
-                        @if ($course->start_at?->isFuture())
-                            Khóa học chưa bắt đầu
-                        @elseif ($course->trackable_documents_count > 0)
-                            {{ $course->progress_percent }}% · {{ $course->completed_documents_count }}/{{ $course->trackable_documents_count }} học liệu đã hoàn thành
-                        @else
-                            Khóa học chưa có học liệu
-                        @endif
-                    </small>
-                </x-card>
-                </a>
-                <form method="POST" action="{{ route('student.courses.leave', $course) }}" class="mt-2" onsubmit="return confirm('Bạn có chắc muốn rời khỏi khóa học này?')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">Rời khóa học</button>
-                </form>
-
                     <!-- Nút thao tác học tập -->
                     <div class="col-md-3 col-lg-3 p-3 p-lg-4 border-start-md bg-light d-flex flex-column gap-2 justify-content-center h-100" style="min-height: 170px;">
                         <a href="{{ route('student.courses.learn', [$course, $lastLesson?->id]) }}" class="btn btn-primary btn-sm w-100 py-2 fw-semibold">
@@ -126,6 +107,11 @@
                     </div>
                 </div>
             </div>
+            <form method="POST" action="{{ route('student.courses.leave', $course) }}" class="mt-2" onsubmit="return confirm('Bạn có chắc muốn rời khỏi khóa học này?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-sm btn-outline-danger">Rời khóa học</button>
+            </form>
         @empty
             <x-empty-state
                 title="Bạn chưa tham gia khóa học nào"

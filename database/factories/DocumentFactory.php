@@ -36,6 +36,8 @@ class DocumentFactory extends Factory
     public function rejected(string $reason = 'Nội dung chưa phù hợp.'): static
     {
         return $this->state(['approval_status' => Document::STATUS_REJECTED, 'rejection_reason' => $reason]);
+    }
+
     public function video(string $url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'): static
     {
         return $this->state(fn () => [

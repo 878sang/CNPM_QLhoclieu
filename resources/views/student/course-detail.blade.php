@@ -76,6 +76,8 @@
                         <div class="progress lm-progress mb-1" role="progressbar" aria-label="Tiến độ khóa học" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ $progressPercent }}%"></div></div>
                         {{ $isEnrolled ? $progressPercent.'% hoàn thành' : 'Chưa tham gia' }}
                     </dd>
+                </dl>
+            </x-card>
             <x-card class="p-4 h-100">
                 <h2 class="h5 mb-3">Thông tin khóa học</h2>
                 <dl class="row mb-0 small">
@@ -109,12 +111,16 @@
         </div>
     </div>
     @if ($isEnrolled)
-        @php($videos = $documents->filter(fn ($document) => $document->isVideo()))
+        @php
+            $videos = $documents->filter(fn ($document) => $document->isVideo());
+        @endphp
         @if ($videos->isNotEmpty())
             <x-card class="p-4 mt-4">
                 <h2 class="h5 mb-3">Video bài giảng</h2>
                 @foreach ($videos as $video)
-                    @php($progress = $progressByDocument[$video->id] ?? null)
+                    @php
+                        $progress = $progressByDocument[$video->id] ?? null;
+                    @endphp
                     <div class="mb-4" @if ($video->allow_view) data-video-progress @endif>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="fw-semibold">{{ $video->title }}</div>
@@ -145,7 +151,10 @@
                 <table class="table align-middle mb-0">
                     <thead><tr><th>Tên bài tập</th><th class="d-none d-md-table-cell">Bài học</th><th>Tiến độ</th><th class="text-end">Thao tác</th></tr></thead>
                     <tbody>
-                        @forelse ($documents->reject(fn ($document) => $document->isVideo()) as $document)
+                        @php
+                            $nonVideoDocs = $documents->reject(fn ($document) => $document->isVideo());
+                        @endphp
+                        @forelse ($nonVideoDocs as $document)
                             <tr>
                                 <td><div class="fw-semibold">{{ $document->title }}</div><div class="small text-muted">{{ $document->original_name }} · {{ number_format($document->size / 1024, 0, ',', '.') }} KB</div></td>
                                 <td class="d-none d-md-table-cell">{{ $document->lesson ? $document->lesson->chapter->title.' / '.$document->lesson->title : '—' }}</td>
@@ -248,6 +257,7 @@
         @endif
     </x-card>
 
+    @if ($isEnrolled)
     <!-- DANH SÁCH TÀI LIỆU KHÓA HỌC DÀNH CHO HỌC VIÊN -->
     @php
         $approvedDocuments = $course->documents()->with('lesson')->approved()->latest()->get();
@@ -317,4 +327,5 @@
             </div>
         @endif
     </x-card>
+    @endif
 @endsection

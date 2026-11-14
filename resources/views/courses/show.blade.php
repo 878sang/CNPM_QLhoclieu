@@ -29,8 +29,13 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                 {{ $course->status === 'public' ? 'Khóa học công khai' : 'Khóa học bản nháp' }}
             </span>
         </div>
-        <div class="h6 mb-0 text-white fw-bold text-truncate text-end" style="max-width: 500px;">
-            {{ $course->title }}
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('courses.assignments.index', $course) }}" class="btn btn-sm btn-light text-primary fw-semibold">
+                <i class="bi bi-journal-check me-1"></i>Quản lý bài tập
+            </a>
+            <div class="h6 mb-0 text-white fw-bold text-truncate text-end" style="max-width: 500px;">
+                {{ $course->title }}
+            </div>
         </div>
     </div>
 
@@ -60,6 +65,11 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
             <li class="nav-item">
                 <a class="nav-link py-3 px-3 fw-semibold text-uppercase {{ $activeTab === 'documents' ? 'active' : '' }}" href="{{ route('courses.show', ['course' => $course, 'tab' => 'documents']) }}">
                     <i class="bi bi-folder2-open me-1"></i>TÀI LIỆU ({{ $course->documents->count() }})
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link py-3 px-3 fw-semibold text-uppercase" href="{{ route('courses.assignments.index', $course) }}">
+                    <i class="bi bi-journals me-1"></i>BÀI TẬP ({{ $course->assignments->count() }})
                 </a>
             </li>
         </ul>
@@ -233,6 +243,14 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                             <i class="bi bi-trash me-1"></i>Xóa bài giảng
                         </button>
                     </form>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('courses.assignments.create', ['course' => $course, 'lesson_id' => $currentLesson->id]) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-circle me-1"></i>Tạo bài tập cho bài này
+                    </a>
+                    <a href="{{ route('courses.assignments.index', $course) }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-journal-check me-1"></i>Quản lý bài tập
+                    </a>
                 </div>
             </div>
 

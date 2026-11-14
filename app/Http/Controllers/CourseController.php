@@ -74,7 +74,7 @@ class CourseController extends Controller
         $this->authorize('view', $course);
 
         return view('courses.show', [
-            'course' => $course->load(['subject', 'teacher', 'chapters.lessons.documents', 'enrollments.user', 'progresses.user']),
+            'course' => $course->load(['subject', 'teacher', 'chapters.lessons.documents', 'chapters.lessons.assignments', 'enrollments.user', 'progresses.user']),
         ]);
     }
 

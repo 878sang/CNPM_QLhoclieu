@@ -22,7 +22,7 @@ class DocumentConversionService
      * Automatically convert Word or PowerPoint document to PDF for online viewing.
      *
      * @param  string  $storedFilePath  Relative path in storage (e.g. "documents/xyz.docx")
-     * @param  string  $originalName   Original client filename (e.g. "slide_tuan_1.pptx")
+     * @param  string  $originalName  Original client filename (e.g. "slide_tuan_1.pptx")
      * @return string|null Relative path to converted PDF, or null if conversion failed
      */
     public function convertOfficeToPdf(string $storedFilePath, string $originalName): ?string
@@ -45,9 +45,9 @@ class DocumentConversionService
 
         $baseName = pathinfo($originalName, PATHINFO_FILENAME);
         $safeBase = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $baseName) ?: 'document';
-        $convertedFileName = 'converted_' . uniqid() . '_' . $safeBase . '.pdf';
-        $targetFullPath = $convertedDirFullPath . DIRECTORY_SEPARATOR . $convertedFileName;
-        $relativePdfPath = $convertedRelativeDir . '/' . $convertedFileName;
+        $convertedFileName = 'converted_'.uniqid().'_'.$safeBase.'.pdf';
+        $targetFullPath = $convertedDirFullPath.DIRECTORY_SEPARATOR.$convertedFileName;
+        $relativePdfPath = $convertedRelativeDir.'/'.$convertedFileName;
 
         // 1. Try LibreOffice CLI first if available on system
         $sofficePath = $this->findLibreOffice();
@@ -64,7 +64,7 @@ class DocumentConversionService
                 ]);
 
                 if ($process->successful()) {
-                    $expectedOutput = $convertedDirFullPath . DIRECTORY_SEPARATOR . pathinfo($sourceFullPath, PATHINFO_FILENAME) . '.pdf';
+                    $expectedOutput = $convertedDirFullPath.DIRECTORY_SEPARATOR.pathinfo($sourceFullPath, PATHINFO_FILENAME).'.pdf';
                     if (file_exists($expectedOutput)) {
                         @rename($expectedOutput, $targetFullPath);
 
@@ -72,7 +72,7 @@ class DocumentConversionService
                     }
                 }
             } catch (\Throwable $e) {
-                Log::warning('LibreOffice conversion failed: ' . $e->getMessage());
+                Log::warning('LibreOffice conversion failed: '.$e->getMessage());
             }
         }
 
@@ -96,7 +96,7 @@ class DocumentConversionService
             return null;
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($fullPath) !== true) {
             return null;
         }
@@ -128,7 +128,7 @@ class DocumentConversionService
             return [];
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($fullPath) !== true) {
             return [];
         }
@@ -137,7 +137,7 @@ class DocumentConversionService
         $i = 1;
 
         while ($xml = $zip->getFromName("ppt/slides/slide{$i}.xml")) {
-            $dom = new \DOMDocument();
+            $dom = new \DOMDocument;
             libxml_use_internal_errors(true);
             $dom->loadXML($xml);
             libxml_clear_errors();
@@ -182,7 +182,7 @@ class DocumentConversionService
      */
     protected function convertWordXmlToHtml(string $xmlContent): string
     {
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         libxml_use_internal_errors(true);
         $dom->loadXML($xmlContent);
         libxml_clear_errors();
@@ -277,7 +277,7 @@ class DocumentConversionService
                                         $cellText .= '<br>';
                                     }
                                 }
-                                $html .= "<td class=\"p-2\">" . trim($cellText, '<br>') . "</td>\n";
+                                $html .= '<td class="p-2">'.trim($cellText, '<br>')."</td>\n";
                             }
                         }
                         $html .= "</tr>\n";
@@ -331,8 +331,8 @@ class DocumentConversionService
             $extension = strtoupper(pathinfo($originalName, PATHINFO_EXTENSION));
             $fileSize = Storage::exists($storedFilePath) ? Storage::size($storedFilePath) : 0;
             $formattedSize = $fileSize >= 1048576
-                ? number_format($fileSize / 1048576, 1) . ' MB'
-                : number_format($fileSize / 1024, 0) . ' KB';
+                ? number_format($fileSize / 1048576, 1).' MB'
+                : number_format($fileSize / 1024, 0).' KB';
 
             $title = pathinfo($originalName, PATHINFO_FILENAME);
             $typeDesc = in_array(strtolower($extension), ['doc', 'docx']) ? 'Microsoft Word' : 'Microsoft PowerPoint';
@@ -343,7 +343,7 @@ class DocumentConversionService
 
             return $relativePdfPath;
         } catch (\Throwable $e) {
-            Log::error('PDF Preview generation error: ' . $e->getMessage());
+            Log::error('PDF Preview generation error: '.$e->getMessage());
 
             return null;
         }
@@ -361,39 +361,39 @@ class DocumentConversionService
         $safeDate = $this->escapePdfText($date);
 
         $stream = "BT\n"
-            . "/F1 20 Tf\n"
-            . "50 740 Td\n"
-            . "(LearnMate - He thong quan ly hoc lieu) Tj\n"
-            . "0 -30 Td\n"
-            . "/F2 15 Tf\n"
-            . "(BAN XEM TRUC TUYEN / PREVIEW TAI LIEU) Tj\n"
-            . "0 -40 Td\n"
-            . "/F1 12 Tf\n"
-            . "(Tieu de: {$safeTitle}) Tj\n"
-            . "0 -25 Td\n"
-            . "(Ten tep goc: {$safeFilename}) Tj\n"
-            . "0 -25 Td\n"
-            . "(Dinh dang goc: {$safeType}) Tj\n"
-            . "0 -25 Td\n"
-            . "(Dung luong: {$safeSize}) Tj\n"
-            . "0 -25 Td\n"
-            . "(Thoi gian tai len: {$safeDate}) Tj\n"
-            . "0 -45 Td\n"
-            . "/F2 11 Tf\n"
-            . "(Thong bao: Tep Word/PowerPoint da duoc he thong tu dong chuyen doi sang PDF de xem truc tuyen.) Tj\n"
-            . "0 -20 Td\n"
-            . "(Ban co the xem noi dung tren trinh duyet hoac bam 'Tai ve may' de nhan tep goc.) Tj\n"
-            . "ET\n";
+            ."/F1 20 Tf\n"
+            ."50 740 Td\n"
+            ."(LearnMate - He thong quan ly hoc lieu) Tj\n"
+            ."0 -30 Td\n"
+            ."/F2 15 Tf\n"
+            ."(BAN XEM TRUC TUYEN / PREVIEW TAI LIEU) Tj\n"
+            ."0 -40 Td\n"
+            ."/F1 12 Tf\n"
+            ."(Tieu de: {$safeTitle}) Tj\n"
+            ."0 -25 Td\n"
+            ."(Ten tep goc: {$safeFilename}) Tj\n"
+            ."0 -25 Td\n"
+            ."(Dinh dang goc: {$safeType}) Tj\n"
+            ."0 -25 Td\n"
+            ."(Dung luong: {$safeSize}) Tj\n"
+            ."0 -25 Td\n"
+            ."(Thoi gian tai len: {$safeDate}) Tj\n"
+            ."0 -45 Td\n"
+            ."/F2 11 Tf\n"
+            ."(Thong bao: Tep Word/PowerPoint da duoc he thong tu dong chuyen doi sang PDF de xem truc tuyen.) Tj\n"
+            ."0 -20 Td\n"
+            ."(Ban co the xem noi dung tren trinh duyet hoac bam 'Tai ve may' de nhan tep goc.) Tj\n"
+            ."ET\n";
 
         $length = strlen($stream);
 
         $objects = [];
-        $objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-        $objects[2] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-        $objects[3] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>";
+        $objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+        $objects[2] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
+        $objects[3] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>';
         $objects[4] = "<< /Length {$length} >>\nstream\n{$stream}\nendstream";
-        $objects[5] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-        $objects[6] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+        $objects[5] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+        $objects[6] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
 
         $pdf = "%PDF-1.4\n";
         $offsets = [];
@@ -404,12 +404,12 @@ class DocumentConversionService
         }
 
         $xrefOffset = strlen($pdf);
-        $pdf .= "xref\n0 " . (count($objects) + 1) . "\n";
+        $pdf .= "xref\n0 ".(count($objects) + 1)."\n";
         $pdf .= "0000000000 65535 f \n";
         foreach ($objects as $id => $obj) {
             $pdf .= sprintf("%010d 00000 n \n", $offsets[$id]);
         }
-        $pdf .= "trailer\n<< /Size " . (count($objects) + 1) . " /Root 1 0 R >>\n";
+        $pdf .= "trailer\n<< /Size ".(count($objects) + 1)." /Root 1 0 R >>\n";
         $pdf .= "startxref\n{$xrefOffset}\n%%EOF";
 
         return $pdf;
@@ -423,4 +423,3 @@ class DocumentConversionService
         return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $ascii);
     }
 }
-

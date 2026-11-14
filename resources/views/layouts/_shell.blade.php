@@ -197,5 +197,6 @@
             </div>
         </div>
     @endif
-</body>
+    @stack('scripts')
+    </body>
 </html>

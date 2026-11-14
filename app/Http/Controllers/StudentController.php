@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Assignment;
 use App\Models\Course;
 use App\Models\DocumentProgress;
 use App\Models\Lesson;
@@ -115,6 +116,7 @@ class StudentController extends Controller
             ->with([
                 'lessons' => fn ($query) => $query->where('status', 'published'),
                 'lessons.documents' => fn ($query) => $query->approved(),
+                'lessons.assignments' => fn ($query) => $query->where('status', 'published')->latest(),
             ])
             ->orderBy('position')
             ->get();
@@ -276,5 +278,57 @@ class StudentController extends Controller
             })
             ->when($request?->filled('subject_id'), fn ($query) => $query->where('subject_id', $request->input('subject_id')))
             ->latest();
+    }
+
+    // ─── Bài tập: Danh sách bài tập của khóa học ───────────────────────
+
+    public function assignments(Course $course): View
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $this->checkEnrolled($course, $user);
+
+        $assignments = $course->assignments()
+            ->where('status', 'published')
+            ->with('lesson')
+            ->get()
+            ->map(function (Assignment $a) use ($user) {
+                $a->my_submission = $a->submissions()->where('user_id', $user->id)->first();
+
+                return $a;
+            });
+
+        return view('student.assignments', compact('course', 'assignments'));
+    }
+
+    // ─── Bài tập: Trang làm bài ────────────────────────────────────────
+
+    public function doAssignment(Course $course, Assignment $assignment): View|RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $this->checkEnrolled($course, $user);
+
+        abort_if($assignment->course_id !== $course->id, 404);
+        abort_if(! $assignment->isPublished(), 403, 'Bài tập chưa được mở.');
+
+        // Nếu đã nộp → redirect về kết quả
+        $existing = $assignment->submissions()->where('user_id', $user->id)->first();
+        if ($existing) {
+            return redirect()->route('student.assignments.result', [$course, $assignment]);
+        }
+
+        return view('student.do-assignment', compact('course', 'assignment'));
+    }
+
+    // ─── Helper: Kiểm tra học viên đã ghi danh chưa ────────────────────
+
+    private function checkEnrolled(Course $course, User $user): void
+    {
+        $enrolled = $course->enrollments()
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+        abort_unless($enrolled, 403, 'Bạn chưa ghi danh khóa học này.');
     }
 }

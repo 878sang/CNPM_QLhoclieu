@@ -22,7 +22,7 @@
     @endif
 
     <div class="d-flex flex-column gap-3">
-        @forelse($courses as $course)
+        @foreach ($courses as $course)
             @php
                 $user = auth()->user();
                 $percent = $course->progressPercentageFor($user);
@@ -32,7 +32,7 @@
                 $totalLessons = $course->chapters->sum(fn ($c) => $c->lessons->count());
                 $completedLessons = $course->progresses->where('is_completed', true)->count();
             @endphp
-            <div class="card border rounded-3 overflow-hidden shadow-sm hover-shadow transition-all bg-white">
+            <x-card class="card border rounded-3 overflow-hidden shadow-sm hover-shadow transition-all bg-white">
                 <div class="row g-0 align-items-center">
                     <div class="col-md-4 col-lg-3 position-relative" style="min-height: 160px;">
                         <a href="{{ route('student.courses.show', $course) }}" class="d-block h-100 w-100">
@@ -104,7 +104,8 @@
                     </div>
                 </div>
             </div>
-        @empty
+        @endforeach
+        @if (false)
             <div class="col-12">
                 <x-empty-state
                     title="Bạn chưa tham gia khóa học nào"
@@ -118,6 +119,6 @@
                     </x-button>
                 </div>
             </div>
-        @endforelse
+        @endif
     </div>
 @endsection

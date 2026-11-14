@@ -38,6 +38,14 @@ return [
             'report' => false,
         ],
 
+        // Private files are served through authorized controller actions.
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

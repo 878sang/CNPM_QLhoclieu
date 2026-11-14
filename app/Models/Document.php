@@ -21,9 +21,6 @@ class Document extends Model
     public const STATUSES = [self::STATUS_PENDING, self::STATUS_APPROVED, self::STATUS_REJECTED];
 
     protected $fillable = [
-        'course_id', 'lesson_id', 'title', 'file_path', 'original_name', 'mime_type', 'size', 'allow_view', 'allow_download',
-        'approval_status', 'rejection_reason', 'reviewed_by', 'reviewed_at', 'pdf_path', 'conversion_status',
-    protected $fillable = [
         'course_id',
         'lesson_id',
         'type',
@@ -37,16 +34,21 @@ class Document extends Model
         'allow_view',
         'allow_download',
         'status',
+        'approval_status',
+        'reviewed_by',
+        'reviewed_at',
+        'pdf_path',
+        'conversion_status',
         'rejection_reason',
     ];
 
     protected function casts(): array
     {
-        return ['allow_view' => 'boolean', 'allow_download' => 'boolean', 'reviewed_at' => 'datetime'];
         return [
             'allow_view' => 'boolean',
             'allow_download' => 'boolean',
             'size' => 'integer',
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -72,7 +74,15 @@ class Document extends Model
 
     public function scopeApproved(Builder $query): void
     {
-        $query->where('approval_status', self::STATUS_APPROVED);
+        $query->where(function (Builder $query): void {
+            $query->where('approval_status', self::STATUS_APPROVED)
+                ->where(function (Builder $query): void {
+                    $query->whereNull('status')->orWhere('status', self::STATUS_APPROVED);
+                })
+                ->orWhere(function (Builder $query): void {
+                    $query->whereNull('approval_status')->where('status', self::STATUS_APPROVED);
+                });
+        });
     }
 
     /**
@@ -83,9 +93,6 @@ class Document extends Model
         $query->approved()->where('allow_view', true);
     }
 
-    public function isVideo(): bool
-    {
-        return str_starts_with((string) $this->mime_type, 'video/');
     public function logs(): HasMany
     {
         return $this->hasMany(MaterialLog::class);
@@ -153,7 +160,12 @@ class Document extends Model
 
     public function isApproved(): bool
     {
-        return $this->approval_status === self::STATUS_APPROVED;
+        $legacyStatus = $this->getAttribute('status');
+        if (in_array($legacyStatus, [self::STATUS_PENDING, self::STATUS_REJECTED], true)) {
+            return false;
+        }
+
+        return ($this->approval_status ?? $legacyStatus) === self::STATUS_APPROVED;
     }
 
     /**
@@ -168,17 +180,16 @@ class Document extends Model
         }
 
         return ['path' => $this->file_path, 'mime' => $this->mime_type, 'name' => $this->original_name];
-        return ($this->getAttribute('status') ?? 'approved') === 'approved';
     }
 
     public function isPending(): bool
     {
-        return $this->getAttribute('status') === 'pending';
+        return ($this->getAttribute('status') ?? $this->approval_status) === self::STATUS_PENDING;
     }
 
     public function isRejected(): bool
     {
-        return $this->getAttribute('status') === 'rejected';
+        return ($this->getAttribute('status') ?? $this->approval_status) === self::STATUS_REJECTED;
     }
 
     public function statusLabel(): string
@@ -197,13 +208,6 @@ class Document extends Model
             'rejected' => 'bg-danger text-white',
             default => 'bg-success text-white',
         };
-    }
-
-    public function scopeApproved($query)
-    {
-        return $query->where(function ($q) {
-            $q->where('status', 'approved')->orWhereNull('status');
-        });
     }
 
     public function isYouTube(): bool

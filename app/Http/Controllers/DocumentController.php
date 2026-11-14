@@ -6,11 +6,11 @@ use App\Http\Requests\DocumentRequest;
 use App\Models\Course;
 use App\Models\Document;
 use App\Models\DocumentProgress;
-use App\Services\DocumentConverter;
-use App\Models\MaterialLog;
 use App\Models\Lesson;
+use App\Models\MaterialLog;
 use App\Models\User;
 use App\Services\DocumentConversionService;
+use App\Services\DocumentConverter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
@@ -20,9 +20,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -30,7 +28,6 @@ class DocumentController extends Controller
 {
     public function __construct(private DocumentConverter $converter) {}
 
-    public function index(Course $course): View
     public function adminIndex(Request $request): View
     {
         abort_unless(Auth::user()?->hasRole('admin'), 403);
@@ -217,7 +214,6 @@ class DocumentController extends Controller
         ]);
     }
 
-    public function store(DocumentRequest $request, Course $course): RedirectResponse
     public function store(DocumentRequest $request, Course $course): RedirectResponse|JsonResponse
     {
         $data = $request->safe()->except('file');
@@ -240,7 +236,6 @@ class DocumentController extends Controller
         $this->attachStatusIfAvailable($data, $defaultStatus);
 
         $document = $course->documents()->create($data);
-
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -333,18 +328,6 @@ class DocumentController extends Controller
     /**
      * Phát tệp xem trực tuyến. Dùng BinaryFileResponse để trình phát video tua được (HTTP Range).
      */
-    public function show(Course $course, Document $document): BinaryFileResponse
-    {
-        $this->authorizeAccess($course, $document, $document->allow_view);
-        $file = $document->viewableFile();
-        $user = auth()->user();
-
-        if (! $document->isVideo() && ! $user->can('update', $course)) {
-            DocumentProgress::markViewed($user, $document);
-        }
-
-        return response()->file(Storage::path($file['path']), ['Content-Type' => $file['mime']])
-            ->setContentDisposition('inline', $file['name'], Str::ascii($file['name']));
     public function show(Request $request, Course $course, Document $document): Response|RedirectResponse|StreamedResponse|View
     {
         $this->authorizeAccess($course, $document, $document->allow_view);
@@ -352,12 +335,27 @@ class DocumentController extends Controller
         // Record log
         $this->logAction($course, $document, 'view', $request);
 
+        if ($user = Auth::user()) {
+            if (! $document->isVideo() && ! $user->can('update', $course)) {
+                DocumentProgress::markViewed($user, $document);
+            }
+        }
+
         // If it's an external link or YouTube/Drive url without file
         if ($document->url && ! $document->file_path) {
             return redirect()->away($document->url);
         }
 
         abort_unless($document->file_path && Storage::exists($document->file_path), 404, 'Tệp tài liệu không tồn tại.');
+
+        if ($document->pdf_path && Storage::exists($document->pdf_path)) {
+            return Storage::response(
+                $document->pdf_path,
+                pathinfo($document->original_name ?? 'document', PATHINFO_FILENAME).'.pdf',
+                ['Content-Type' => 'application/pdf', 'Accept-Ranges' => 'bytes'],
+                'inline'
+            );
+        }
 
         // If raw file stream is requested (for docx-preview JS fetch or download)
         if ($request->boolean('raw')) {
@@ -374,6 +372,35 @@ class DocumentController extends Controller
 
         // If it's an actual PDF file or video, stream inline directly
         if ($document->isPdf() || $document->isVideo()) {
+            if ($document->isVideo() && $request->header('Range')) {
+                $size = Storage::size($document->file_path);
+                preg_match('/bytes=(\d*)-(\d*)/', $request->header('Range'), $range);
+                $start = isset($range[1]) && $range[1] !== '' ? (int) $range[1] : 0;
+                $end = isset($range[2]) && $range[2] !== '' ? (int) $range[2] : $size - 1;
+                $end = min($end, $size - 1);
+                $length = max(0, $end - $start + 1);
+
+                return response()->stream(function () use ($document, $start, $length): void {
+                    $handle = fopen(Storage::path($document->file_path), 'rb');
+                    fseek($handle, $start);
+                    $remaining = $length;
+                    while ($remaining > 0 && ! feof($handle)) {
+                        $chunk = fread($handle, min(8192, $remaining));
+                        if ($chunk === false || $chunk === '') {
+                            break;
+                        }
+                        echo $chunk;
+                        $remaining -= strlen($chunk);
+                    }
+                    fclose($handle);
+                }, 206, [
+                    'Content-Type' => $document->mime_type ?? 'video/mp4',
+                    'Content-Length' => (string) $length,
+                    'Content-Range' => "bytes {$start}-{$end}/{$size}",
+                    'Accept-Ranges' => 'bytes',
+                ]);
+            }
+
             return Storage::response(
                 $document->file_path,
                 $document->original_name ?? basename($document->file_path),
@@ -550,7 +577,8 @@ class DocumentController extends Controller
                     $table->text('rejection_reason')->nullable()->after('status');
                 });
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
 
         if (Schema::hasColumn('documents', 'status')) {
             $updateData = ['status' => $status];
@@ -570,7 +598,8 @@ class DocumentController extends Controller
                     $table->text('rejection_reason')->nullable()->after('status');
                 });
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
 
         if (Schema::hasColumn('documents', 'status')) {
             $data['status'] = $defaultStatus;
