@@ -49,18 +49,34 @@ class AssignmentController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'required|in:text,multiple_choice',
+            'type' => 'required|in:text,multiple_choice,mixed',
             'question_count' => 'required|integer|min:1|max:200',
             'time_limit_minutes' => 'nullable|integer|min:1|max:600',
             'deadline' => 'nullable|date',
             'lesson_id' => ['nullable', Rule::exists('lessons', 'id')->where(fn ($query) => $query->whereIn('chapter_id', $course->chapters()->select('id')))],
             'status' => 'required|in:draft,published',
             'show_answer_to_students' => 'sometimes|boolean',
+            'question_types' => 'nullable|array',
+            'question_types.*' => 'nullable|in:text,multiple_choice',
             'answer_key' => 'nullable|array',
             'answer_key.*' => 'nullable|string|max:50',
             'file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
             'answer_file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
         ]);
+
+        $questionTypes = $data['question_types'] ?? null;
+        $type = $data['type'] ?? 'text';
+        if (! empty($questionTypes)) {
+            $hasMC = in_array('multiple_choice', $questionTypes, true);
+            $hasText = in_array('text', $questionTypes, true);
+            if ($hasMC && $hasText) {
+                $type = 'mixed';
+            } elseif ($hasMC) {
+                $type = 'multiple_choice';
+            } else {
+                $type = 'text';
+            }
+        }
 
         // Lọc answer_key: chỉ giữ câu có đáp án
         $answerKey = null;
@@ -90,7 +106,8 @@ class AssignmentController extends Controller
         $course->assignments()->create([
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
-            'type' => $data['type'],
+            'type' => $type,
+            'question_types' => $questionTypes,
             'question_count' => $data['question_count'],
             'time_limit_minutes' => $data['time_limit_minutes'] ?? null,
             'deadline' => $data['deadline'] ?? null,
@@ -146,18 +163,34 @@ class AssignmentController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'required|in:text,multiple_choice',
+            'type' => 'required|in:text,multiple_choice,mixed',
             'question_count' => 'required|integer|min:1|max:200',
             'time_limit_minutes' => 'nullable|integer|min:1|max:600',
             'deadline' => 'nullable|date',
             'lesson_id' => ['nullable', Rule::exists('lessons', 'id')->where(fn ($query) => $query->whereIn('chapter_id', $course->chapters()->select('id')))],
             'status' => 'required|in:draft,published',
             'show_answer_to_students' => 'sometimes|boolean',
+            'question_types' => 'nullable|array',
+            'question_types.*' => 'nullable|in:text,multiple_choice',
             'answer_key' => 'nullable|array',
             'answer_key.*' => 'nullable|string|max:50',
             'file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
             'answer_file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
         ]);
+
+        $questionTypes = array_key_exists('question_types', $data) ? $data['question_types'] : $assignment->question_types;
+        $type = $data['type'] ?? $assignment->type;
+        if (! empty($questionTypes)) {
+            $hasMC = in_array('multiple_choice', $questionTypes, true);
+            $hasText = in_array('text', $questionTypes, true);
+            if ($hasMC && $hasText) {
+                $type = 'mixed';
+            } elseif ($hasMC) {
+                $type = 'multiple_choice';
+            } else {
+                $type = 'text';
+            }
+        }
 
         $answerKey = $assignment->answer_key;
         if (array_key_exists('answer_key', $data)) {
@@ -188,7 +221,8 @@ class AssignmentController extends Controller
         $assignment->update([
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
-            'type' => $data['type'],
+            'type' => $type,
+            'question_types' => $questionTypes,
             'question_count' => $data['question_count'],
             'time_limit_minutes' => $data['time_limit_minutes'] ?? null,
             'deadline' => $data['deadline'] ?? null,

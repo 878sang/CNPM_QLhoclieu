@@ -7,16 +7,9 @@
             <i class="bi bi-arrow-left me-1"></i>Quay lại bài học
         </a>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge {{ $assignment->isMultipleChoice() ? 'bg-primary' : 'bg-info text-dark' }} px-3 py-2 fs-6">
-                <i class="bi {{ $assignment->isMultipleChoice() ? 'bi-ui-radios-grid' : 'bi-input-cursor-text' }} me-1"></i>
-                {{ $assignment->isMultipleChoice() ? 'Trắc nghiệm' : 'Tự luận / Nhập số' }}
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6">
+                <i class="bi bi-ui-checks me-1"></i>{{ $assignment->typeLabel() }}
             </span>
-            @if($assignment->time_limit_minutes)
-                <div class="badge bg-danger-subtle text-danger border border-danger px-3 py-2 fs-6 d-flex align-items-center gap-1" id="timerBadge">
-                    <i class="bi bi-stopwatch-fill"></i>
-                    <span id="countdownDisplay">{{ sprintf('%02d:00', $assignment->time_limit_minutes) }}</span>
-                </div>
-            @endif
         </div>
     </div>
     <h1 class="h4 fw-bold text-dark mb-1">{{ $assignment->title }}</h1>
@@ -104,13 +97,10 @@
                         </span>
                     </div>
 
-                    {{-- Thông tin số câu & thời gian làm bài theo ảnh mẫu --}}
+                    {{-- Thông tin số câu/điểm --}}
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 small">
                         <span class="text-danger fw-semibold">
                             <i class="bi bi-mortarboard me-1"></i>Tổng số câu/điểm: <strong>{{ $assignment->question_count }} Câu / {{ $assignment->maxScore() }} điểm</strong>
-                        </span>
-                        <span class="text-danger fw-semibold">
-                            <i class="bi bi-clock me-1"></i>Tổng thời gian: <strong>{{ $assignment->time_limit_minutes ? $assignment->time_limit_minutes.' phút' : 'Không giới hạn' }}</strong>
                         </span>
                     </div>
 
@@ -124,11 +114,16 @@
                 <div class="card-body p-3 overflow-auto" style="max-height: 62vh; min-height: 380px;">
                     <div class="row g-2 g-md-3">
                         @for($i = 1; $i <= $assignment->question_count; $i++)
-                            @if($assignment->isMultipleChoice())
-                                {{-- Giao diện trắc nghiệm ABCD (ảnh 2) --}}
-                                <div class="col-6 mb-2">
-                                    <div class="p-2 rounded-2 bg-light student-q-card">
-                                        <div class="fw-bold text-dark small mb-2 ps-1">Câu {{ $i }}</div>
+                            @php($isMC = $assignment->isMultipleChoiceQuestion($i))
+                            <div class="col-6 mb-2">
+                                <div class="p-2 rounded-2 bg-light student-q-card">
+                                    <div class="d-flex align-items-center justify-content-between mb-2 ps-1">
+                                        <span class="fw-bold text-dark small">Câu {{ $i }}</span>
+                                        <span class="badge {{ $isMC ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }} py-0 px-1" style="font-size: 0.68rem;">
+                                            {{ $isMC ? 'Trắc nghiệm' : 'Điền số' }}
+                                        </span>
+                                    </div>
+                                    @if($isMC)
                                         <div class="d-flex align-items-center gap-1 justify-content-between px-1">
                                             @foreach(['A', 'B', 'C', 'D'] as $opt)
                                                 <button type="button"
@@ -142,22 +137,16 @@
                                             @endforeach
                                         </div>
                                         <input type="hidden" name="answers[{{ $i }}]" id="answer_input_{{ $i }}" value="">
-                                    </div>
-                                </div>
-                            @else
-                                {{-- Giao diện tự luận / nhập số (ảnh 1) --}}
-                                <div class="col-6 mb-2">
-                                    <div class="p-2 rounded-2 bg-light student-q-card">
-                                        <label class="form-label fw-bold text-dark small mb-1 ps-1" for="answer_input_{{ $i }}">Câu {{ $i }}</label>
+                                    @else
                                         <input type="text"
                                             name="answers[{{ $i }}]"
                                             id="answer_input_{{ $i }}"
                                             class="form-control form-control-sm bg-white student-text-ans"
                                             placeholder="Đáp án..."
                                             oninput="updateAnswerCount()">
-                                    </div>
+                                    @endif
                                 </div>
-                            @endif
+                            </div>
                         @endfor
                     </div>
                 </div>
@@ -320,33 +309,6 @@ function confirmSubmit() {
     document.getElementById('confirmModalText').innerHTML = text;
     bootstrap.Modal.getOrCreateInstance(document.getElementById('submitConfirmModal')).show();
 }
-
-// Đồng hồ đếm ngược (nếu có giới hạn thời gian)
-@if($assignment->time_limit_minutes)
-(function() {
-    let remainingSeconds = {{ $assignment->time_limit_minutes * 60 }};
-    const display = document.getElementById('countdownDisplay');
-    const badge = document.getElementById('timerBadge');
-
-    const timer = setInterval(() => {
-        remainingSeconds--;
-        if (remainingSeconds <= 0) {
-            clearInterval(timer);
-            alert('Đã hết thời gian làm bài! Hệ thống sẽ tự động nộp bài làm của bạn.');
-            document.getElementById('submitAssignmentForm').submit();
-            return;
-        }
-
-        const mins = Math.floor(remainingSeconds / 60);
-        const secs = remainingSeconds % 60;
-        display.textContent = (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
-
-        if (remainingSeconds < 300) { // Dưới 5 phút
-            badge.className = 'badge bg-danger text-white px-3 py-2 fs-6 animate__animated animate__pulse animate__infinite';
-        }
-    }, 1000);
-})();
-@endif
 
 // Khởi chạy đếm số câu ban đầu
 updateAnswerCount();

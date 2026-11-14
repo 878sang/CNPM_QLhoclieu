@@ -111,6 +111,18 @@ class SubmissionController extends Controller
         return view('student.assignment-result', compact('course', 'assignment', 'submission'));
     }
 
+    // ─── Giáo viên: Xem chi tiết bài làm của học viên ───────────────────
+    public function teacherShow(Course $course, Assignment $assignment, Submission $submission)
+    {
+        abort_if($assignment->course_id !== $course->id, 404);
+        abort_if($submission->assignment_id !== $assignment->id, 404);
+        $this->authorizeTeacher($course);
+
+        $submission->load(['student', 'grader']);
+
+        return view('assignments.submissions.show', compact('course', 'assignment', 'submission'));
+    }
+
     // ─── Giáo viên: Chấm điểm thủ công ────────────────────────────────
 
     public function grade(Request $request, Course $course, Assignment $assignment, Submission $submission)
@@ -148,6 +160,30 @@ class SubmissionController extends Controller
             $submission->file_path,
             $submission->original_name ?: 'bai-nop.pdf'
         );
+    }
+
+    // ─── Giáo viên: Xem file bài nộp trực tiếp (inline) ─────────────────
+    public function viewFile(Course $course, Assignment $assignment, Submission $submission)
+    {
+        abort_if($assignment->course_id !== $course->id, 404);
+        abort_if($submission->assignment_id !== $assignment->id, 404);
+        $this->authorizeTeacher($course);
+        abort_if(! $submission->file_path, 404, 'Bài nộp này không có file.');
+
+        $disk = Storage::disk('private');
+        abort_unless($disk->exists($submission->file_path), 404);
+        $mimeType = $disk->mimeType($submission->file_path) ?: 'application/octet-stream';
+        $inlineTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
+        if (! in_array($mimeType, $inlineTypes, true)) {
+            return $disk->download($submission->file_path, $submission->original_name ?: 'bai-nop');
+        }
+
+        return $disk->response($submission->file_path, $submission->original_name ?: 'bai-nop', [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="'.addslashes($submission->original_name ?: 'bai-nop').'"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     // ─── Giáo viên: Download file đề bài ───────────────────────────────

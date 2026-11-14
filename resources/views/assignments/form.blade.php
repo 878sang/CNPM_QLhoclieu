@@ -6,9 +6,9 @@
     $editing = $assignment !== null;
     $selectedLessonId = $selectedLessonId ?? null;
     $selectedChapterId = old('chapter_id', $assignment?->lesson?->chapter_id ?? '');
-    $initialType = old('type', $assignment->type ?? 'text');
+    $initialType = old('type', $assignment->type ?? 'multiple_choice');
     $initialCount = (int) old('question_count', $assignment->question_count ?? 10);
-    $initialTime = old('time_limit_minutes', $assignment->time_limit_minutes ?? '');
+    $initialQuestionTypes = old('question_types', $assignment->question_types ?? []);
 @endphp
 
 <div class="mb-4">
@@ -47,7 +47,7 @@
 
     <div class="row g-4">
         {{-- CỘT TRÁI: Thông tin chung --}}
-        <div class="col-lg-6 col-xl-5">
+        <div class="col-lg-5 col-xl-5">
             <div class="card border shadow-2xs rounded-3 p-4 mb-3 bg-white">
                 <h5 class="fw-bold text-dark mb-3 pb-2 border-bottom">
                     <i class="bi bi-info-circle text-primary me-2"></i>Thông tin bài tập
@@ -99,18 +99,11 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold small text-muted">Thời gian làm bài (phút)</label>
-                        <input type="number" name="time_limit_minutes" id="timeLimitInput" class="form-control form-control-sm" min="1" max="600"
-                            placeholder="Để trống = Không giới hạn"
-                            value="{{ $initialTime }}">
+                        <label class="form-label fw-semibold small text-muted">Hạn nộp bài</label>
+                        <input type="datetime-local" name="deadline" class="form-control form-control-sm"
+                            value="{{ old('deadline', $assignment?->deadline?->format('Y-m-d\TH:i') ?? '') }}">
+                        <div class="form-text small">Để trống nếu không giới hạn.</div>
                     </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold small text-muted">Hạn nộp bài</label>
-                    <input type="datetime-local" name="deadline" class="form-control form-control-sm"
-                        value="{{ old('deadline', $assignment?->deadline?->format('Y-m-d\TH:i') ?? '') }}">
-                    <div class="form-text small">Để trống nếu không giới hạn ngày giờ nộp.</div>
                 </div>
 
                 {{-- File đề bài --}}
@@ -152,56 +145,62 @@
             </div>
         </div>
 
-        {{-- CỘT PHẢI: Bảng nhập đáp án (chuẩn theo mẫu người dùng) --}}
-        <div class="col-lg-6 col-xl-7">
+        {{-- CỘT PHẢI: Bảng nhập đáp án hỗn hợp không cần cách ra --}}
+        <div class="col-lg-7 col-xl-7">
             <div class="card border shadow-2xs rounded-3 p-4 h-100 bg-white d-flex flex-column">
                 {{-- Header đáp án đúng theo phong cách mẫu ảnh --}}
                 <div class="border-bottom pb-3 mb-3">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                         <h4 class="h5 fw-bold text-dark mb-0">Đáp án</h4>
-                        {{-- Nút chuyển đổi loại câu hỏi --}}
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Loại câu hỏi">
-                            <button type="button" class="btn btn-outline-primary" id="btnTypeText" onclick="switchQuestionType('text')">
-                                <i class="bi bi-input-cursor-text me-1"></i>Tự luận / Nhập số
+                        {{-- Thao tác hàng loạt --}}
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-gear me-1"></i>Chuyển đổi tất cả
                             </button>
-                            <button type="button" class="btn btn-outline-primary" id="btnTypeMC" onclick="switchQuestionType('multiple_choice')">
-                                <i class="bi bi-check-circle me-1"></i>Trắc nghiệm (A/B/C/D)
-                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item small" href="javascript:void(0)" onclick="bulkConvertAll('multiple_choice')"><i class="bi bi-check-circle text-success me-2"></i>Đổi tất cả sang Trắc nghiệm</a></li>
+                                <li><a class="dropdown-item small" href="javascript:void(0)" onclick="bulkConvertAll('text')"><i class="bi bi-input-cursor-text text-primary me-2"></i>Đổi tất cả sang Tự luận / Số</a></li>
+                            </ul>
                         </div>
                     </div>
 
-                    {{-- Thông tin số câu & thời gian (theo mẫu ảnh) --}}
+                    {{-- Thông tin số câu theo mẫu ảnh --}}
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 small text-muted">
                         <div>
-                            <span class="text-danger fw-semibold">
+                            <span class="text-danger fw-semibold fs-6">
                                 <i class="bi bi-mortarboard me-1"></i>Tổng số câu/điểm:
                                 <strong id="totalQNum">0</strong> Câu / <strong id="totalQNum2">0</strong> điểm
                             </span>
                         </div>
-                        <div>
-                            <span class="text-danger fw-semibold">
-                                <i class="bi bi-clock me-1"></i>Tổng thời gian làm bài:
-                                <strong id="timeLimitLabel">{{ $initialTime ? $initialTime.' phút' : 'Không giới hạn' }}</strong>
-                            </span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" id="countMC">0 TN</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" id="countText">0 Số</span>
                         </div>
                     </div>
                 </div>
 
-                {{-- Toolbar thêm câu hỏi: + 1 câu, + 5 câu, + 10 câu, + Thêm tiếp số câu... --}}
+                {{-- Toolbar thêm câu hỏi: Thêm trắc nghiệm hoặc Tự luận/Số hỗn hợp liền mạch --}}
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 p-2 bg-light rounded-2 border">
                     <div class="d-flex align-items-center gap-1 flex-wrap">
                         <span class="small fw-semibold text-secondary me-1"><i class="bi bi-plus-lg me-1"></i>Thêm câu hỏi:</span>
-                        <button type="button" class="btn btn-sm btn-white border shadow-2xs py-1 px-2 fw-semibold" onclick="addQuestions(1)">
-                            +1 câu
-                        </button>
-                        <button type="button" class="btn btn-sm btn-white border shadow-2xs py-1 px-2 fw-semibold" onclick="addQuestions(5)">
-                            +5 câu
-                        </button>
-                        <button type="button" class="btn btn-sm btn-white border shadow-2xs py-1 px-2 fw-semibold" onclick="addQuestions(10)">
-                            +10 câu
-                        </button>
-                        <button type="button" class="btn btn-sm btn-primary py-1 px-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#questionModal">
-                            <i class="bi bi-plus-circle me-1"></i>Thêm tiếp số câu...
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-success fw-semibold" onclick="addQuestions(1, 'multiple_choice')" title="Thêm 1 câu trắc nghiệm ABCD">
+                                +1 Trắc nghiệm
+                            </button>
+                            <button type="button" class="btn btn-outline-success fw-semibold" onclick="addQuestions(5, 'multiple_choice')" title="Thêm 5 câu trắc nghiệm ABCD">
+                                +5 TN
+                            </button>
+                        </div>
+                        <div class="btn-group btn-group-sm ms-1" role="group">
+                            <button type="button" class="btn btn-outline-primary fw-semibold" onclick="addQuestions(1, 'text')" title="Thêm 1 câu tự luận / điền số">
+                                +1 Tự luận / Số
+                            </button>
+                            <button type="button" class="btn btn-outline-primary fw-semibold" onclick="addQuestions(5, 'text')" title="Thêm 5 câu tự luận / điền số">
+                                +5 Số
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-dark py-1 px-2 fw-semibold ms-1" data-bs-toggle="modal" data-bs-target="#questionModal">
+                            <i class="bi bi-plus-circle me-1"></i>Thêm tiếp...
                         </button>
                     </div>
                     <div class="d-flex align-items-center gap-1">
@@ -211,8 +210,8 @@
                     </div>
                 </div>
 
-                {{-- Container lưới câu hỏi (Scrollable) --}}
-                <div id="answerKeyContainer" class="flex-grow-1 overflow-auto pe-1" style="max-height: 580px; min-height: 320px;">
+                {{-- Container lưới câu hỏi hỗn hợp (Scrollable, 2 cột liên tục) --}}
+                <div id="answerKeyContainer" class="flex-grow-1 overflow-auto pe-1" style="max-height: 580px; min-height: 340px;">
                     {{-- Rendered dynamically by JavaScript --}}
                 </div>
             </div>
@@ -224,7 +223,7 @@
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div class="text-muted small">
                 <i class="bi bi-check-circle-fill text-success me-1"></i>
-                Học viên sẽ thấy giao diện làm bài nhập đáp án tương ứng đúng theo định dạng và số câu bạn thiết lập ở trên.
+                Học viên sẽ thấy giao diện làm bài nhập đáp án hỗn hợp tương ứng (câu trắc nghiệm chọn A/B/C/D, câu tự luận nhập ô số) liền mạch theo đúng thứ tự.
             </div>
             <div class="d-flex gap-2">
                 <a href="{{ route('courses.assignments.index', $course) }}" class="btn btn-outline-secondary px-3">
@@ -238,7 +237,7 @@
     </div>
 </form>
 
-{{-- MODAL THÊM TIẾP CÂU HỎI --}}
+{{-- MODAL THÊM TIẾP CÂU HỎI HỖN HỢP --}}
 <div class="modal fade" id="questionModal" tabindex="-1" aria-labelledby="questionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -250,11 +249,28 @@
             </div>
             <div class="modal-body p-4">
                 <div class="mb-3">
+                    <label class="form-label fw-semibold">Loại câu hỏi muốn thêm:</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="modal_qtype" id="modalTypeMC" value="multiple_choice" checked>
+                            <label class="form-check-label fw-semibold text-success" for="modalTypeMC">
+                                <i class="bi bi-check-circle me-1"></i>Trắc nghiệm (A/B/C/D)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="modal_qtype" id="modalTypeText" value="text">
+                            <label class="form-check-label fw-semibold text-primary" for="modalTypeText">
+                                <i class="bi bi-input-cursor-text me-1"></i>Tự luận / Điền số
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
                     <label for="questionModalAddCount" class="form-label fw-semibold">Số câu hỏi muốn thêm tiếp: <span class="text-danger">*</span></label>
                     <input type="number" id="questionModalAddCount" class="form-control form-control-lg text-center fw-bold" min="1" max="100" value="5" placeholder="VD: 5, 10, 20">
                     <div class="form-text mt-2 text-muted">
                         <i class="bi bi-info-circle-fill text-primary me-1"></i>
-                        Hệ thống sẽ <strong>giữ nguyên toàn bộ câu hỏi và đáp án đã có</strong>, sau đó thêm tiếp các câu mới vào cuối danh sách bài tập.
+                        Hệ thống sẽ <strong>giữ nguyên toàn bộ câu hỏi và đáp án đã có</strong>, sau đó thêm tiếp các câu mới dạng hỗn hợp vào cuối danh sách bài tập.
                     </div>
                 </div>
             </div>
@@ -298,7 +314,7 @@
     box-shadow: 0 2px 4px rgba(40, 167, 69, 0.35);
 }
 .question-item-card {
-    transition: background-color 0.15s;
+    transition: background-color 0.15s, border-color 0.15s;
     border: 1px solid #e9ecef;
 }
 .question-item-card:hover {
@@ -311,6 +327,16 @@
 <script>
 // Server initial state
 const existingAnswerKey = @json($assignment->answer_key ?? null);
+const existingQuestionTypes = @json($initialQuestionTypes ?? []);
+const initialGlobalType = @json($initialType);
+const initialQuestionCount = {{ $initialCount }};
+
+// Map lưu loại câu hỏi cho từng câu: questionTypes[i] = 'multiple_choice' | 'text'
+const questionTypes = {};
+for (let i = 1; i <= initialQuestionCount; i++) {
+    questionTypes[i] = existingQuestionTypes[i] || existingQuestionTypes[String(i)] || initialGlobalType || 'multiple_choice';
+}
+
 let answerKeyOverride = null;
 
 // Lấy toàn bộ đáp án hiện tại đang nhập trên form
@@ -325,29 +351,28 @@ function collectAnswerKey() {
     return values;
 }
 
-// Chuyển đổi định dạng câu hỏi (Tự luận số / Trắc nghiệm ABCD)
-function switchQuestionType(type) {
+// Chuyển đổi loại câu hỏi của 1 câu cụ thể (Trắc nghiệm <-> Tự luận/Số)
+function toggleQuestionType(qNum) {
     const current = collectAnswerKey();
     answerKeyOverride = current;
-    document.getElementById('questionType').value = type;
-    updateTypeButtons(type);
+    const currentType = questionTypes[qNum] || 'multiple_choice';
+    questionTypes[qNum] = currentType === 'multiple_choice' ? 'text' : 'multiple_choice';
     renderAnswerKey();
 }
 
-function updateTypeButtons(type) {
-    const btnText = document.getElementById('btnTypeText');
-    const btnMC = document.getElementById('btnTypeMC');
-    if (type === 'multiple_choice') {
-        btnMC.className = 'btn btn-primary active fw-semibold';
-        btnText.className = 'btn btn-outline-primary';
-    } else {
-        btnText.className = 'btn btn-primary active fw-semibold';
-        btnMC.className = 'btn btn-outline-primary';
+// Đổi hàng loạt tất cả các câu hỏi sang 1 loại
+function bulkConvertAll(type) {
+    const count = parseInt(document.getElementById('questionCount').value, 10) || 0;
+    const current = collectAnswerKey();
+    answerKeyOverride = current;
+    for (let i = 1; i <= count; i++) {
+        questionTypes[i] = type;
     }
+    renderAnswerKey();
 }
 
-// Thêm tiếp N câu hỏi vào danh sách (không thay thế câu cũ)
-function addQuestions(countToAdd) {
+// Thêm tiếp N câu hỏi vào danh sách dạng hỗn hợp
+function addQuestions(countToAdd, type = 'multiple_choice') {
     const countInput = document.getElementById('questionCount');
     const currentCount = parseInt(countInput.value, 10) || 0;
     const currentAnswers = collectAnswerKey();
@@ -356,6 +381,10 @@ function addQuestions(countToAdd) {
     if (newCount > 200) {
         alert('Số lượng câu hỏi tối đa cho một bài tập là 200 câu.');
         return;
+    }
+
+    for (let i = currentCount + 1; i <= newCount; i++) {
+        questionTypes[i] = type;
     }
 
     countInput.value = newCount;
@@ -377,22 +406,29 @@ function removeQuestion(questionNumber) {
         if (!confirm('Bạn có muốn xóa câu hỏi cuối cùng không?')) return;
         countInput.value = 0;
         answerKeyOverride = {};
+        for (const k in questionTypes) delete questionTypes[k];
         renderAnswerKey();
         return;
     }
 
     const current = collectAnswerKey();
-    const updated = {};
+    const updatedAnswers = {};
+    const updatedTypes = {};
+
     for (let oldNumber = 1; oldNumber <= count; oldNumber++) {
         if (oldNumber === questionNumber) continue;
         const newNumber = oldNumber > questionNumber ? oldNumber - 1 : oldNumber;
         if (current[oldNumber] !== undefined) {
-            updated[newNumber] = current[oldNumber];
+            updatedAnswers[newNumber] = current[oldNumber];
         }
+        updatedTypes[newNumber] = questionTypes[oldNumber] || 'multiple_choice';
     }
 
+    for (const k in questionTypes) delete questionTypes[k];
+    Object.assign(questionTypes, updatedTypes);
+
     countInput.value = count - 1;
-    answerKeyOverride = updated;
+    answerKeyOverride = updatedAnswers;
     renderAnswerKey();
 }
 
@@ -401,12 +437,12 @@ function clearAllQuestions() {
     if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ câu hỏi và nhập lại từ đầu?')) return;
     document.getElementById('questionCount').value = 0;
     answerKeyOverride = {};
+    for (const k in questionTypes) delete questionTypes[k];
     renderAnswerKey();
 }
 
-// Render toàn bộ lưới đáp án theo mẫu ảnh
+// Render toàn bộ lưới đáp án hỗn hợp không cần cách ra (chuẩn 2 cột liên tục)
 function renderAnswerKey() {
-    const type = document.getElementById('questionType').value;
     const count = parseInt(document.getElementById('questionCount').value, 10) || 0;
     const container = document.getElementById('answerKeyContainer');
     const currentAnswerKey = answerKeyOverride ?? collectAnswerKey();
@@ -414,17 +450,42 @@ function renderAnswerKey() {
 
     document.getElementById('totalQNum').textContent = count;
     document.getElementById('totalQNum2').textContent = count;
-    updateTypeButtons(type);
+
+    let mcCount = 0;
+    let textCount = 0;
+    for (let i = 1; i <= count; i++) {
+        if (!questionTypes[i]) questionTypes[i] = 'multiple_choice';
+        if (questionTypes[i] === 'multiple_choice') mcCount++;
+        else textCount++;
+    }
+
+    document.getElementById('countMC').textContent = mcCount + ' TN';
+    document.getElementById('countText').textContent = textCount + ' Số';
+
+    // Cập nhật loại bài tập ẩn (mixed, multiple_choice hoặc text)
+    const hiddenTypeInput = document.getElementById('questionType');
+    if (mcCount > 0 && textCount > 0) {
+        hiddenTypeInput.value = 'mixed';
+    } else if (mcCount > 0) {
+        hiddenTypeInput.value = 'multiple_choice';
+    } else {
+        hiddenTypeInput.value = 'text';
+    }
 
     if (count < 1) {
         container.innerHTML = `
             <div class="text-center text-muted border border-dashed rounded-3 p-5 my-2">
                 <i class="bi bi-card-checklist fs-1 d-block mb-2 text-secondary"></i>
                 <h6 class="fw-bold text-dark mb-1">Chưa có câu hỏi nào trong bài tập</h6>
-                <p class="small text-muted mb-3">Bấm vào các nút "+1 câu", "+5 câu", "+10 câu" hoặc "Thêm tiếp số câu..." ở phía trên để bắt đầu nhập đáp án.</p>
-                <button type="button" class="btn btn-sm btn-primary" onclick="addQuestions(10)">
-                    <i class="bi bi-plus-circle me-1"></i>Thêm nhanh 10 câu đầu tiên
-                </button>
+                <p class="small text-muted mb-3">Bấm vào các nút "+1 Trắc nghiệm", "+1 Tự luận / Số" hoặc "Thêm tiếp..." ở thanh công cụ phía trên để bắt đầu thêm câu hỏi.</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-sm btn-success" onclick="addQuestions(10, 'multiple_choice')">
+                        <i class="bi bi-plus-circle me-1"></i>Thêm nhanh 10 câu Trắc nghiệm
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQuestions(5, 'text')">
+                        <i class="bi bi-plus-circle me-1"></i>Thêm nhanh 5 câu Điền số
+                    </button>
+                </div>
             </div>
         `;
         return;
@@ -433,20 +494,33 @@ function renderAnswerKey() {
     let html = '<div class="row g-2 g-md-3">';
 
     for (let i = 1; i <= count; i++) {
+        const qType = questionTypes[i] || 'multiple_choice';
+        const isMC = qType === 'multiple_choice';
         const existing = currentAnswerKey[i] ?? (existingAnswerKey ? (existingAnswerKey[i] ?? existingAnswerKey[String(i)] ?? '') : '');
 
-        if (type === 'multiple_choice') {
-            const opts = ['A', 'B', 'C', 'D'];
-            html += `
-                <div class="col-sm-6 mb-2">
-                    <div class="p-2 px-3 rounded-2 bg-light question-item-card">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
+        html += `
+            <div class="col-sm-6 mb-2">
+                <div class="p-2 px-3 rounded-2 bg-light question-item-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
                             <span class="fw-bold text-dark small">Câu ${i}</span>
-                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" onclick="removeQuestion(${i})" title="Xóa câu ${i}">
-                                <i class="bi bi-x-lg small"></i>
+                            <button type="button"
+                                class="btn btn-sm py-0 px-2 rounded-pill border small fw-semibold ${isMC ? 'btn-success text-white' : 'btn-primary text-white'}"
+                                onclick="toggleQuestionType(${i})"
+                                style="font-size: 0.72rem; line-height: 1.5;"
+                                title="Bấm để đổi câu này sang ${isMC ? 'Tự luận / Điền số' : 'Trắc nghiệm ABCD'}">
+                                ${isMC ? '<i class="bi bi-check-circle me-1"></i>Trắc nghiệm' : '<i class="bi bi-input-cursor-text me-1"></i>Điền số'}
                             </button>
                         </div>
-                        <div class="d-flex align-items-center gap-2">`;
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" onclick="removeQuestion(${i})" title="Xóa câu ${i}">
+                            <i class="bi bi-x-lg small"></i>
+                        </button>
+                    </div>
+                    <input type="hidden" name="question_types[${i}]" value="${qType}">`;
+
+        if (isMC) {
+            const opts = ['A', 'B', 'C', 'D'];
+            html += `<div class="d-flex align-items-center gap-2">`;
             opts.forEach(opt => {
                 const checked = existing.toUpperCase() === opt;
                 html += `
@@ -458,31 +532,23 @@ function renderAnswerKey() {
                     </button>`;
             });
             html += `
-                        </div>
-                        <input type="hidden" name="answer_key[${i}]" id="mc_${i}" value="${existing}">
                     </div>
-                </div>`;
+                    <input type="hidden" name="answer_key[${i}]" id="mc_${i}" value="${existing}">`;
         } else {
-            // Tự luận / Nhập số theo mẫu Screenshot 1
             html += `
-                <div class="col-sm-6 mb-2">
-                    <div class="p-2 px-3 rounded-2 bg-light question-item-card">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                            <label class="form-label fw-bold text-dark small mb-0" for="ans_input_${i}">Câu ${i}</label>
-                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" onclick="removeQuestion(${i})" title="Xóa câu ${i}">
-                                <i class="bi bi-x-lg small"></i>
-                            </button>
-                        </div>
-                        <input type="text"
-                            name="answer_key[${i}]"
-                            id="ans_input_${i}"
-                            class="form-control form-control-sm bg-white"
-                            placeholder="Nhập đáp án câu ${i}..."
-                            value="${existing}">
-                    </div>
-                </div>`;
+                <input type="text"
+                    name="answer_key[${i}]"
+                    id="ans_input_${i}"
+                    class="form-control form-control-sm bg-white"
+                    placeholder="Nhập đáp án số/chữ câu ${i}..."
+                    value="${existing}">`;
         }
+
+        html += `
+                </div>
+            </div>`;
     }
+
     html += '</div>';
     container.innerHTML = html;
 }
@@ -503,7 +569,7 @@ function selectMC(btn, qNum, opt) {
     }
 }
 
-// Modal Thêm câu hỏi: Thêm tiếp vào cuối danh sách
+// Modal Thêm câu hỏi hỗn hợp: Thêm tiếp vào cuối danh sách
 document.getElementById('confirmQuestionsBtn').addEventListener('click', () => {
     const addCount = parseInt(document.getElementById('questionModalAddCount').value, 10);
     if (!Number.isInteger(addCount) || addCount < 1 || addCount > 100) {
@@ -511,18 +577,10 @@ document.getElementById('confirmQuestionsBtn').addEventListener('click', () => {
         return;
     }
 
-    addQuestions(addCount);
+    const selectedType = document.querySelector('input[name="modal_qtype"]:checked')?.value || 'multiple_choice';
+    addQuestions(addCount, selectedType);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('questionModal')).hide();
 });
-
-// Đồng bộ nhãn thời gian làm bài
-const timeLimitInput = document.getElementById('timeLimitInput');
-if (timeLimitInput) {
-    timeLimitInput.addEventListener('input', () => {
-        const val = timeLimitInput.value.trim();
-        document.getElementById('timeLimitLabel').textContent = val ? val + ' phút' : 'Không giới hạn';
-    });
-}
 
 // Lọc động bài học theo chương
 const chapterSelect = document.getElementById('chapterSelect');

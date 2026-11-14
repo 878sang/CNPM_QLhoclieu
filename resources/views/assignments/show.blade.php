@@ -14,7 +14,7 @@
                 {{ $assignment->status === 'published' ? 'Đã xuất bản' : 'Bản nháp' }}
             </span>
             <span class="badge bg-primary-subtle text-primary border">
-                {{ $assignment->type === 'multiple_choice' ? 'Trắc nghiệm' : 'Tự luận' }}
+                {{ $assignment->typeLabel() }}
             </span>
         </div>
     </div>
@@ -34,21 +34,13 @@
 
 {{-- Summary Info Cards --}}
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-md-3">
+    <div class="col-sm-6 col-md-4">
         <div class="card border rounded-3 p-3 bg-white shadow-2xs">
             <div class="text-muted small mb-1"><i class="bi bi-list-ol me-1 text-primary"></i>Tổng số câu hỏi</div>
             <div class="h4 fw-bold mb-0 text-dark">{{ $assignment->question_count }} câu</div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-        <div class="card border rounded-3 p-3 bg-white shadow-2xs">
-            <div class="text-muted small mb-1"><i class="bi bi-clock me-1 text-danger"></i>Thời gian làm bài</div>
-            <div class="h4 fw-bold mb-0 text-dark">
-                {{ $assignment->time_limit_minutes ? $assignment->time_limit_minutes.' phút' : 'Không giới hạn' }}
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-md-3">
+    <div class="col-sm-6 col-md-4">
         <div class="card border rounded-3 p-3 bg-white shadow-2xs">
             <div class="text-muted small mb-1"><i class="bi bi-calendar-event me-1 text-warning"></i>Hạn nộp bài</div>
             <div class="h5 fw-bold mb-0 text-dark">
@@ -56,7 +48,7 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-3">
+    <div class="col-sm-6 col-md-4">
         <div class="card border rounded-3 p-3 bg-white shadow-2xs">
             <div class="text-muted small mb-1"><i class="bi bi-send-check me-1 text-success"></i>Đã nộp bài</div>
             <div class="h4 fw-bold mb-0 text-success">{{ $submissions->count() }} lượt</div>
@@ -151,7 +143,7 @@
                         <div class="col-sm-6 col-md-4 col-xl-3">
                             <div class="p-2 px-3 border rounded-2 bg-light d-flex align-items-center justify-content-between">
                                 <span class="small fw-bold text-secondary">Câu {{ $question }}:</span>
-                                <span class="badge {{ $assignment->isMultipleChoice() ? 'bg-success' : 'bg-primary' }} fs-6">
+                                <span class="badge {{ $assignment->isMultipleChoiceQuestion((int) $question) ? 'bg-success' : 'bg-primary' }} fs-6">
                                     {{ $answer }}
                                 </span>
                             </div>
@@ -208,14 +200,16 @@
                                     {{ $submission->feedback ?: '—' }}
                                 </td>
                                 <td class="text-end pe-4">
-                                    @if($submission->file_path)
-                                        <a href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-secondary me-1" title="Tải bài làm">
-                                            <i class="bi bi-download"></i>
+                                    <div class="d-inline-flex align-items-center gap-1">
+                                        <a href="{{ route('courses.assignments.submissions.show', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-primary" title="Xem chi tiết bài làm của học viên">
+                                            <i class="bi bi-eye me-1"></i>Xem bài làm
                                         </a>
-                                    @endif
-                                    <a href="{{ route('courses.assignments.submissions.index', [$course, $assignment]) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil-square me-1"></i>Chấm điểm
-                                    </a>
+                                        @if($submission->file_path)
+                                            <a href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-secondary" title="Tải bài làm">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty

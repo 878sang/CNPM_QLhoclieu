@@ -99,13 +99,16 @@
                             </form>
                         </td>
                         <td class="text-end pe-4">
-                            @if($submission->file_path)
-                                <a href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-secondary" title="Tải bài làm học viên">
-                                    <i class="bi bi-download me-1"></i>Tải file
+                            <div class="d-inline-flex align-items-center gap-1">
+                                <a href="{{ route('courses.assignments.submissions.show', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-primary" title="Xem chi tiết bài làm của học viên">
+                                    <i class="bi bi-eye me-1"></i>Xem bài làm
                                 </a>
-                            @else
-                                <span class="text-muted small fst-italic">Không có tệp</span>
-                            @endif
+                                @if($submission->file_path)
+                                    <a href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-secondary" title="Tải tệp đính kèm">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty

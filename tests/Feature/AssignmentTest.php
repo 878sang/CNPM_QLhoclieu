@@ -231,4 +231,97 @@ class AssignmentTest extends TestCase
         $this->assertSame('Bài làm rất tốt, trình bày rõ ràng.', $submission->feedback);
         $this->assertSame($this->teacher->id, $submission->graded_by);
     }
+
+    public function test_teacher_can_view_student_submission_details(): void
+    {
+        $assignment = Assignment::create([
+            'course_id' => $this->course->id,
+            'title' => 'Kiểm tra 1 tiết',
+            'type' => 'mixed',
+            'question_count' => 3,
+            'question_types' => ['1' => 'multiple_choice', '2' => 'multiple_choice', '3' => 'text'],
+            'answer_key' => ['1' => 'A', '2' => 'B', '3' => '100'],
+            'status' => 'published',
+        ]);
+
+        $submission = Submission::create([
+            'assignment_id' => $assignment->id,
+            'user_id' => $this->student->id,
+            'answers' => ['1' => 'A', '2' => 'C', '3' => '100'],
+            'score' => 2.0,
+            'max_score' => 3.0,
+            'submitted_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->teacher)
+            ->get(route('courses.assignments.submissions.show', [$this->course, $assignment, $submission]));
+
+        $response->assertOk()
+            ->assertSee($this->student->name)
+            ->assertSee('Trắc nghiệm')
+            ->assertSee('Điền số')
+            ->assertSee('Đúng')
+            ->assertSee('Sai')
+            ->assertSee('100');
+    }
+
+    public function test_teacher_can_create_and_manage_mixed_assignment(): void
+    {
+        $response = $this->actingAs($this->teacher)
+            ->post(route('courses.assignments.store', $this->course), [
+                'title' => 'Đề hỗn hợp Trắc nghiệm và Tự luận số',
+                'type' => 'mixed',
+                'question_count' => 4,
+                'status' => 'published',
+                'question_types' => [
+                    '1' => 'multiple_choice',
+                    '2' => 'multiple_choice',
+                    '3' => 'text',
+                    '4' => 'text',
+                ],
+                'answer_key' => [
+                    '1' => 'A',
+                    '2' => 'B',
+                    '3' => '18432',
+                    '4' => '303',
+                ],
+            ]);
+
+        $response->assertRedirect(route('courses.assignments.index', $this->course));
+
+        $assignment = Assignment::where('title', 'Đề hỗn hợp Trắc nghiệm và Tự luận số')->first();
+        $this->assertNotNull($assignment);
+        $this->assertSame('mixed', $assignment->type);
+        $this->assertTrue($assignment->isMultipleChoiceQuestion(1));
+        $this->assertFalse($assignment->isMultipleChoiceQuestion(3));
+
+        // Học viên vào làm bài tập hỗn hợp
+        $this->actingAs($this->student)
+            ->get(route('student.assignments.do', [$this->course, $assignment]))
+            ->assertOk()
+            ->assertSee('Trắc nghiệm')
+            ->assertSee('Điền số');
+
+        // Học viên nộp bài: đúng câu 1, 2, 3; sai câu 4
+        $this->actingAs($this->student)
+            ->post(route('student.assignments.submit', [$this->course, $assignment]), [
+                'answers' => [
+                    '1' => 'A',
+                    '2' => 'B',
+                    '3' => '18432',
+                    '4' => '999',
+                ],
+            ]);
+
+        $submission = $assignment->submissions()->where('user_id', $this->student->id)->first();
+        $this->assertNotNull($submission);
+        $this->assertEquals(3.0, (float) $submission->score);
+
+        // Giáo viên vào xem bài làm của học sinh
+        $this->actingAs($this->teacher)
+            ->get(route('courses.assignments.submissions.show', [$this->course, $assignment, $submission]))
+            ->assertOk()
+            ->assertSee('18432')
+            ->assertSee('999');
+    }
 }

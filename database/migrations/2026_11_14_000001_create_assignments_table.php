@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('lesson_id')->nullable()->constrained()->nullOnDelete();
             $table->string('title');
             $table->text('description')->nullable();
-            $table->enum('type', ['text', 'multiple_choice'])->default('text');
+            $table->string('type', 20)->default('text');
             $table->unsignedSmallInteger('question_count')->default(10);
             $table->unsignedSmallInteger('time_limit_minutes')->nullable();
             $table->datetime('deadline')->nullable();

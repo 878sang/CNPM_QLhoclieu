@@ -84,14 +84,13 @@
                                                             <span class="badge {{ $a->status === 'published' ? 'bg-success' : 'bg-warning text-dark' }} fw-semibold">
                                                                 {{ $a->status === 'published' ? 'Đã xuất bản' : 'Bản nháp' }}
                                                             </span>
-                                                            <span class="badge {{ $a->isMultipleChoice() ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-info-subtle text-info-emphasis border border-info-subtle' }}">
-                                                                {{ $a->isMultipleChoice() ? 'Trắc nghiệm ABCD' : 'Tự luận / Nhập số' }}
+                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                                {{ $a->typeLabel() }}
                                                             </span>
                                                         </div>
                                                         <h3 class="h6 fw-bold mb-1 text-dark">{{ $a->title }}</h3>
                                                         <div class="small text-muted d-flex flex-wrap gap-3">
                                                             <span><i class="bi bi-list-ol text-primary me-1"></i>{{ $a->question_count }} câu</span>
-                                                            <span><i class="bi bi-clock me-1"></i>{{ $a->time_limit_minutes ? $a->time_limit_minutes.' phút' : 'Không giới hạn' }}</span>
                                                             @if($a->deadline)
                                                                 <span class="{{ $a->isPastDeadline() ? 'text-danger fw-semibold' : '' }}">
                                                                     <i class="bi bi-calendar-event me-1"></i>Hạn: {{ $a->deadline->format('H:i - d/m/Y') }}
@@ -143,14 +142,13 @@
                                         <span class="badge {{ $a->status === 'published' ? 'bg-success' : 'bg-warning text-dark' }} fw-semibold">
                                             {{ $a->status === 'published' ? 'Đã xuất bản' : 'Bản nháp' }}
                                         </span>
-                                        <span class="badge {{ $a->isMultipleChoice() ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-info-subtle text-info-emphasis border border-info-subtle' }}">
-                                            {{ $a->isMultipleChoice() ? 'Trắc nghiệm ABCD' : 'Tự luận / Nhập số' }}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                            {{ $a->typeLabel() }}
                                         </span>
                                     </div>
                                     <h3 class="h6 fw-bold mb-1 text-dark">{{ $a->title }}</h3>
                                     <div class="small text-muted d-flex flex-wrap gap-3">
                                         <span><i class="bi bi-list-ol text-primary me-1"></i>{{ $a->question_count }} câu</span>
-                                        <span><i class="bi bi-clock me-1"></i>{{ $a->time_limit_minutes ? $a->time_limit_minutes.' phút' : 'Không giới hạn' }}</span>
                                         @if($a->deadline)
                                             <span class="{{ $a->isPastDeadline() ? 'text-danger fw-semibold' : '' }}">
                                                 <i class="bi bi-calendar-event me-1"></i>Hạn: {{ $a->deadline->format('H:i - d/m/Y') }}

@@ -10,13 +10,14 @@ class Assignment extends Model
 {
     protected $fillable = [
         'course_id', 'lesson_id', 'title', 'description',
-        'type', 'question_count', 'time_limit_minutes', 'deadline',
+        'type', 'question_types', 'question_count', 'time_limit_minutes', 'deadline',
         'answer_key', 'file_path', 'answer_file_path',
         'original_name', 'answer_original_name', 'status', 'show_answer_to_students',
     ];
 
     protected $casts = [
         'answer_key' => 'array',
+        'question_types' => 'array',
         'deadline' => 'datetime',
         'graded_at' => 'datetime',
         'show_answer_to_students' => 'boolean',
@@ -54,6 +55,39 @@ class Assignment extends Model
     public function isMultipleChoice(): bool
     {
         return $this->type === 'multiple_choice';
+    }
+
+    public function isMixed(): bool
+    {
+        return $this->type === 'mixed';
+    }
+
+    public function typeLabel(): string
+    {
+        return match ($this->type) {
+            'multiple_choice' => 'Trắc nghiệm',
+            'mixed' => 'Hỗn hợp (TN & Tự luận)',
+            default => 'Tự luận / Nhập số',
+        };
+    }
+
+    public function questionType(int $questionNumber): string
+    {
+        if (! empty($this->question_types)) {
+            if (isset($this->question_types[(string) $questionNumber])) {
+                return $this->question_types[(string) $questionNumber];
+            }
+            if (isset($this->question_types[$questionNumber])) {
+                return $this->question_types[$questionNumber];
+            }
+        }
+
+        return $this->type === 'multiple_choice' ? 'multiple_choice' : 'text';
+    }
+
+    public function isMultipleChoiceQuestion(int $questionNumber): bool
+    {
+        return $this->questionType($questionNumber) === 'multiple_choice';
     }
 
     public function isPastDeadline(): bool

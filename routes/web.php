@@ -97,8 +97,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{course}/bai-tap/{assignment}', [AssignmentController::class, 'destroy'])->name('assignments.destroy');
         // Submissions management (teacher)
         Route::get('/{course}/bai-tap/{assignment}/bai-nop', [SubmissionController::class, 'index'])->name('assignments.submissions.index');
+        Route::get('/{course}/bai-tap/{assignment}/bai-nop/{submission}', [SubmissionController::class, 'teacherShow'])->name('assignments.submissions.show');
         Route::post('/{course}/bai-tap/{assignment}/bai-nop/{submission}/cham-diem', [SubmissionController::class, 'grade'])->name('assignments.submissions.grade');
         Route::get('/{course}/bai-tap/{assignment}/bai-nop/{submission}/tai-xuong', [SubmissionController::class, 'downloadFile'])->name('assignments.submissions.download');
+        Route::get('/{course}/bai-tap/{assignment}/bai-nop/{submission}/xem-file', [SubmissionController::class, 'viewFile'])->name('assignments.submissions.preview_file');
         Route::get('/{course}/bai-tap/{assignment}/tai-de', [SubmissionController::class, 'downloadAssignmentFile'])->name('assignments.download_file');
         Route::get('/{course}/bai-tap/{assignment}/xem-de', [SubmissionController::class, 'viewAssignmentFile'])->name('assignments.preview_file');
         Route::get('/{course}/bai-tap/{assignment}/tai-dap-an', [SubmissionController::class, 'downloadAnswerFile'])->name('assignments.answer_file');

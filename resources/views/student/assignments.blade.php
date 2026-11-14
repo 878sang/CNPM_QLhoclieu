@@ -38,8 +38,8 @@
             <div class="card-body p-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div class="flex-grow-1" style="max-width: 680px;">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span class="badge {{ $assignment->isMultipleChoice() ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-info-subtle text-info-emphasis border border-info-subtle' }} fw-semibold">
-                            {{ $assignment->isMultipleChoice() ? 'Trắc nghiệm ABCD' : 'Tự luận / Nhập số' }}
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold">
+                            {{ $assignment->typeLabel() }}
                         </span>
                         @if($assignment->lesson)
                             <span class="badge bg-secondary-subtle text-secondary border">
@@ -69,10 +69,6 @@
 
                     <div class="d-flex flex-wrap align-items-center gap-3 small text-muted">
                         <span><i class="bi bi-list-ol text-primary me-1"></i><strong>{{ $assignment->question_count }}</strong> câu hỏi</span>
-                        <span>
-                            <i class="bi bi-clock text-secondary me-1"></i>
-                            {{ $assignment->time_limit_minutes ? $assignment->time_limit_minutes.' phút' : 'Không giới hạn thời gian' }}
-                        </span>
                         <span>
                             <i class="bi bi-calendar-event {{ $isPastDeadline ? 'text-danger' : 'text-secondary' }} me-1"></i>
                             Hạn nộp: <strong class="{{ $isPastDeadline ? 'text-danger' : '' }}">{{ $assignment->deadline ? $assignment->deadline->format('H:i - d/m/Y') : 'Không giới hạn' }}</strong>
