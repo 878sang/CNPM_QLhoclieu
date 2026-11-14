@@ -89,7 +89,6 @@
                             <i class="bi bi-journal-text me-2"></i>Khóa học
                         </a>
                         <a class="nav-link {{ request()->routeIs('admin.documents.*') ? 'active' : '' }}" href="{{ route('admin.documents.index') }}">
-                            <i class="bi bi-patch-check me-2"></i>Duyệt bài tập
                             <i class="bi bi-folder2-open me-2"></i>Tài liệu
                         </a>
                     @else

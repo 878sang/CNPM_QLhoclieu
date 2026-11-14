@@ -6,7 +6,6 @@ use App\Http\Requests\DocumentRequest;
 use App\Models\Course;
 use App\Models\Document;
 use App\Models\DocumentProgress;
-use App\Models\Lesson;
 use App\Models\MaterialLog;
 use App\Models\User;
 use App\Services\DocumentConversionService;
@@ -27,24 +26,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class DocumentController extends Controller
 {
     public function __construct(private DocumentConverter $converter) {}
-
-    public function adminIndex(Request $request): View
-    {
-        abort_unless(Auth::user()?->hasRole('admin'), 403);
-
-        $pendingLessons = Lesson::with(['chapter.course.teacher', 'documents' => fn ($q) => $q->where('status', 'pending')])
-            ->where(function ($query): void {
-                $query->where('status', 'pending')
-                    ->orWhereHas('documents', fn ($documents) => $documents->where('status', 'pending'));
-            })
-            ->whereHas('chapter.course')
-            ->latest('updated_at')
-            ->get();
-
-        return view('admin.documents.index', [
-            'pendingLessons' => $pendingLessons,
-        ]);
-    }
 
     public function adminStore(DocumentRequest $request): RedirectResponse|JsonResponse
     {
@@ -150,25 +131,6 @@ class DocumentController extends Controller
         }
 
         return redirect()->route('teacher.materials.index')->with('status', 'Đã tải lên học liệu thành công! Tài liệu đang chờ Quản trị viên duyệt.');
-    }
-
-    public function approve(Document $document): RedirectResponse
-    {
-        abort_unless(Auth::user()?->hasRole('admin'), 403);
-
-        $this->updateStatusSafely($document, 'approved', null);
-
-        return back()->with('status', "Đã duyệt học liệu \"{$document->title}\" thành công.");
-    }
-
-    public function reject(Request $request, Document $document): RedirectResponse
-    {
-        abort_unless(Auth::user()?->hasRole('admin'), 403);
-
-        $reason = trim((string) $request->input('reason', 'Nội dung chưa phù hợp.'));
-        $this->updateStatusSafely($document, 'rejected', $reason);
-
-        return back()->with('status', "Đã từ chối học liệu \"{$document->title}\".");
     }
 
     public function index(Request $request, Course $course): View
@@ -565,27 +527,6 @@ class DocumentController extends Controller
 
         if (Schema::hasColumn('documents', 'converted_pdf_path')) {
             $fileAttrs['converted_pdf_path'] = $convertedPdf;
-        }
-    }
-
-    private function updateStatusSafely(Document $document, string $status, ?string $reason = null): void
-    {
-        try {
-            if (! Schema::hasColumn('documents', 'status')) {
-                Schema::table('documents', function (Blueprint $table): void {
-                    $table->string('status')->default('approved')->after('allow_download')->index();
-                    $table->text('rejection_reason')->nullable()->after('status');
-                });
-            }
-        } catch (\Throwable) {
-        }
-
-        if (Schema::hasColumn('documents', 'status')) {
-            $updateData = ['status' => $status];
-            if (Schema::hasColumn('documents', 'rejection_reason')) {
-                $updateData['rejection_reason'] = $reason;
-            }
-            $document->update($updateData);
         }
     }
 

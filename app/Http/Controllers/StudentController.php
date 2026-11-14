@@ -43,7 +43,6 @@ class StudentController extends Controller
     public function show(Course $course): View
     {
         /** @var User $user */
-        /** @var User $user */
         $user = Auth::user();
         $isEnrolled = $course->enrollments()->where('user_id', $user->id)->where('status', 'active')->exists();
 
@@ -105,7 +104,6 @@ class StudentController extends Controller
 
     public function learn(Course $course, ?Lesson $lesson = null): View|RedirectResponse
     {
-        /** @var User $user */
         /** @var User $user */
         $user = Auth::user();
         $isEnrolled = $course->enrollments()->where('user_id', $user->id)->where('status', 'active')->exists();
@@ -265,9 +263,8 @@ class StudentController extends Controller
             'chapters.lessons' => fn ($query) => $query->where('status', 'published'),
             'progresses' => fn ($query) => $query->where('user_id', $userId),
         ])
-            ->whereHas('enrollments', fn ($query) => $query->where('user_id', auth()->id()))
-            ->withProgressFor(auth()->user())
             ->whereHas('enrollments', fn ($query) => $query->where('user_id', $userId))
+            ->withProgressFor(auth()->user())
             ->when($request?->filled('q'), function ($query) use ($request): void {
                 $term = trim((string) $request->input('q'));
                 $query->where(function ($query) use ($term): void {

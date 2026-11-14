@@ -40,9 +40,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/tai-khoan', [AdminController::class, 'users'])->name('users.index');
         Route::get('/tai-khoan/tao-moi', [AdminController::class, 'createUser'])->name('users.create');
         Route::post('/tai-khoan', [AdminController::class, 'storeUser'])->name('users.store');
-        Route::get('/bai-tap', [DocumentReviewController::class, 'index'])->name('lesson-review.index');
-        Route::post('/bai-tap/{document}/duyet', [DocumentReviewController::class, 'approve'])->name('lesson-review.approve');
-        Route::post('/bai-tap/{document}/tu-choi', [DocumentReviewController::class, 'reject'])->name('lesson-review.reject');
         Route::resource('mon-hoc', SubjectController::class)->parameters(['mon-hoc' => 'subject'])->except(['show'])->names('subjects');
         Route::get('/tai-lieu', [DocumentReviewController::class, 'index'])->name('documents.index');
         Route::post('/tai-lieu', [DocumentController::class, 'adminStore'])->name('documents.store');

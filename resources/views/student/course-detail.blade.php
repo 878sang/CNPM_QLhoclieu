@@ -63,22 +63,6 @@
         </div>
         <div class="col-lg-4">
             <x-card class="p-4">
-                <h2 class="h5">Thông tin khóa học</h2>
-                <dl class="row mb-0">
-                    <dt class="col-5">Giảng viên</dt>
-                    <dd class="col-7">{{ $course->teacher?->name ?: 'Chưa cập nhật' }}</dd>
-                    <dt class="col-5">Bắt đầu</dt>
-                    <dd class="col-7">{{ $course->start_at?->format('d/m/Y H:i') ?: 'Chưa cập nhật' }}</dd>
-                    <dt class="col-5">Kết thúc</dt>
-                    <dd class="col-7">{{ $course->end_at?->format('d/m/Y H:i') ?: 'Chưa cập nhật' }}</dd>
-                    <dt class="col-5">Tiến độ</dt>
-                    <dd class="col-7">
-                        <div class="progress lm-progress mb-1" role="progressbar" aria-label="Tiến độ khóa học" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ $progressPercent }}%"></div></div>
-                        {{ $isEnrolled ? $progressPercent.'% hoàn thành' : 'Chưa tham gia' }}
-                    </dd>
-                </dl>
-            </x-card>
-            <x-card class="p-4 h-100">
                 <h2 class="h5 mb-3">Thông tin khóa học</h2>
                 <dl class="row mb-0 small">
                     <dt class="col-5 text-muted">Giảng viên</dt>
@@ -91,6 +75,11 @@
                     <dd class="col-7">{{ $course->chapters->count() }} chương</dd>
                     <dt class="col-5 text-muted">Số bài học</dt>
                     <dd class="col-7">{{ $course->chapters->sum(fn ($c) => $c->lessons->count()) }} bài học</dd>
+                    <dt class="col-5 text-muted">Tiến độ</dt>
+                    <dd class="col-7">
+                        <div class="progress lm-progress mb-1" role="progressbar" aria-label="Tiến độ khóa học" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ $progressPercent }}%"></div></div>
+                        <span class="small">{{ $isEnrolled ? $progressPercent.'% hoàn thành' : 'Chưa tham gia' }}</span>
+                    </dd>
                 </dl>
 
                 @if ($isEnrolled)
