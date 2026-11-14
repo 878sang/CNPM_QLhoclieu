@@ -7,7 +7,7 @@
     $selectedLessonId = $selectedLessonId ?? null;
     $selectedChapterId = old('chapter_id', $assignment?->lesson?->chapter_id ?? '');
     $initialType = old('type', $assignment->type ?? 'multiple_choice');
-    $initialCount = (int) old('question_count', $assignment->question_count ?? 10);
+    $initialCount = (int) old('question_count', $assignment->question_count ?? 0);
     $initialQuestionTypes = old('question_types', $assignment->question_types ?? []);
 @endphp
 
@@ -179,33 +179,16 @@
                     </div>
                 </div>
 
-                {{-- Toolbar thêm câu hỏi: Thêm trắc nghiệm hoặc Tự luận/Số hỗn hợp liền mạch --}}
+                {{-- Toolbar thêm câu hỏi: Chỉ nút Thêm tiếp --}}
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 p-2 bg-light rounded-2 border">
-                    <div class="d-flex align-items-center gap-1 flex-wrap">
-                        <span class="small fw-semibold text-secondary me-1"><i class="bi bi-plus-lg me-1"></i>Thêm câu hỏi:</span>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-success fw-semibold" onclick="addQuestions(1, 'multiple_choice')" title="Thêm 1 câu trắc nghiệm ABCD">
-                                +1 Trắc nghiệm
-                            </button>
-                            <button type="button" class="btn btn-outline-success fw-semibold" onclick="addQuestions(5, 'multiple_choice')" title="Thêm 5 câu trắc nghiệm ABCD">
-                                +5 TN
-                            </button>
-                        </div>
-                        <div class="btn-group btn-group-sm ms-1" role="group">
-                            <button type="button" class="btn btn-outline-primary fw-semibold" onclick="addQuestions(1, 'text')" title="Thêm 1 câu tự luận / điền số">
-                                +1 Tự luận / Số
-                            </button>
-                            <button type="button" class="btn btn-outline-primary fw-semibold" onclick="addQuestions(5, 'text')" title="Thêm 5 câu tự luận / điền số">
-                                +5 Số
-                            </button>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-dark py-1 px-2 fw-semibold ms-1" data-bs-toggle="modal" data-bs-target="#questionModal">
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-primary py-1 px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#questionModal">
                             <i class="bi bi-plus-circle me-1"></i>Thêm tiếp...
                         </button>
                     </div>
                     <div class="d-flex align-items-center gap-1">
                         <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2" onclick="clearAllQuestions()" title="Xóa tất cả câu hỏi">
-                            <i class="bi bi-trash"></i>
+                            <i class="bi bi-trash me-1"></i>Xóa hết
                         </button>
                     </div>
                 </div>
@@ -477,13 +460,10 @@ function renderAnswerKey() {
             <div class="text-center text-muted border border-dashed rounded-3 p-5 my-2">
                 <i class="bi bi-card-checklist fs-1 d-block mb-2 text-secondary"></i>
                 <h6 class="fw-bold text-dark mb-1">Chưa có câu hỏi nào trong bài tập</h6>
-                <p class="small text-muted mb-3">Bấm vào các nút "+1 Trắc nghiệm", "+1 Tự luận / Số" hoặc "Thêm tiếp..." ở thanh công cụ phía trên để bắt đầu thêm câu hỏi.</p>
-                <div class="d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-sm btn-success" onclick="addQuestions(10, 'multiple_choice')">
-                        <i class="bi bi-plus-circle me-1"></i>Thêm nhanh 10 câu Trắc nghiệm
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQuestions(5, 'text')">
-                        <i class="bi bi-plus-circle me-1"></i>Thêm nhanh 5 câu Điền số
+                <p class="small text-muted mb-3">Bấm vào nút "Thêm tiếp..." ở phía trên để bắt đầu thêm câu hỏi vào bài tập.</p>
+                <div class="d-flex justify-content-center">
+                    <button type="button" class="btn btn-primary px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#questionModal">
+                        <i class="bi bi-plus-circle me-1"></i>Thêm tiếp...
                     </button>
                 </div>
             </div>

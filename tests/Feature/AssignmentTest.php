@@ -49,6 +49,17 @@ class AssignmentTest extends TestCase
         ]);
     }
 
+    public function test_create_assignment_form_starts_with_zero_questions(): void
+    {
+        $this->actingAs($this->teacher)
+            ->get(route('courses.assignments.create', $this->course))
+            ->assertOk()
+            ->assertSee('value="0"', false)
+            ->assertSee('Thêm tiếp...')
+            ->assertDontSee('+1 Trắc nghiệm')
+            ->assertDontSee('+5 TN');
+    }
+
     public function test_teacher_can_create_text_assignment_with_answer_key(): void
     {
         $response = $this->actingAs($this->teacher)

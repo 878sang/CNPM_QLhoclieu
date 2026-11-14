@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->string('type', 20)->default('text');
-            $table->unsignedSmallInteger('question_count')->default(10);
+            $table->unsignedSmallInteger('question_count')->default(0);
             $table->unsignedSmallInteger('time_limit_minutes')->nullable();
             $table->datetime('deadline')->nullable();
             $table->json('answer_key')->nullable(); // {"1":"18432","2":"303"} hoặc {"1":"A","2":"B"}

@@ -6,7 +6,6 @@ use App\Http\Requests\DocumentRequest;
 use App\Models\Course;
 use App\Models\Document;
 use App\Models\DocumentProgress;
-use App\Models\Lesson;
 use App\Models\MaterialLog;
 use App\Models\User;
 use App\Services\DocumentConversionService;
@@ -76,12 +75,12 @@ class DocumentController extends Controller
         $query = Document::whereIn('course_id', $courseIds)
             ->with(['course', 'lesson.chapter'])
             ->withCount([
-                'logs as views_count' => fn($q) => $q->where('action', 'view'),
-                'logs as downloads_count' => fn($q) => $q->where('action', 'download'),
+                'logs as views_count' => fn ($q) => $q->where('action', 'view'),
+                'logs as downloads_count' => fn ($q) => $q->where('action', 'download'),
             ])
-            ->when($request->filled('type'), fn($q) => $q->where('type', $request->input('type')))
-            ->when($request->filled('course_id'), fn($q) => $q->where('course_id', $request->input('course_id')))
-            ->when($request->filled('status'), fn($q) => $q->where('status', $request->input('status')))
+            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
+            ->when($request->filled('course_id'), fn ($q) => $q->where('course_id', $request->input('course_id')))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('q'), function ($q) use ($request): void {
                 $term = trim((string) $request->input('q'));
                 $q->where(function ($sub) use ($term): void {
@@ -141,11 +140,11 @@ class DocumentController extends Controller
         $query = $course->documents()
             ->with('lesson.chapter')
             ->withCount([
-                'logs as views_count' => fn($q) => $q->where('action', 'view'),
-                'logs as downloads_count' => fn($q) => $q->where('action', 'download'),
+                'logs as views_count' => fn ($q) => $q->where('action', 'view'),
+                'logs as downloads_count' => fn ($q) => $q->where('action', 'download'),
             ])
-            ->when($request->filled('type'), fn($q) => $q->where('type', $request->input('type')))
-            ->when($request->filled('lesson_id'), fn($q) => $q->where('lesson_id', $request->input('lesson_id')))
+            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
+            ->when($request->filled('lesson_id'), fn ($q) => $q->where('lesson_id', $request->input('lesson_id')))
             ->latest();
 
         return view('documents.index', [
@@ -167,9 +166,9 @@ class DocumentController extends Controller
             'courses' => $courses,
             'documents' => Document::with(['course', 'lesson.chapter'])
                 ->whereIn('course_id', $courses->modelKeys())
-                ->when($request->filled('course_id'), fn($query) => $query->where('course_id', $request->query('course_id')))
-                ->when(in_array($status, Document::STATUSES, true), fn($query) => $query->where('approval_status', $status))
-                ->when($request->filled('q'), fn($query) => $query->where('title', 'like', '%' . trim((string) $request->query('q')) . '%'))
+                ->when($request->filled('course_id'), fn ($query) => $query->where('course_id', $request->query('course_id')))
+                ->when(in_array($status, Document::STATUSES, true), fn ($query) => $query->where('approval_status', $status))
+                ->when($request->filled('q'), fn ($query) => $query->where('title', 'like', '%'.trim((string) $request->query('q')).'%'))
                 ->latest()
                 ->paginate(10)
                 ->withQueryString(),
@@ -314,7 +313,7 @@ class DocumentController extends Controller
         if ($document->pdf_path && Storage::exists($document->pdf_path)) {
             return Storage::response(
                 $document->pdf_path,
-                pathinfo($document->original_name ?? 'document', PATHINFO_FILENAME) . '.pdf',
+                pathinfo($document->original_name ?? 'document', PATHINFO_FILENAME).'.pdf',
                 ['Content-Type' => 'application/pdf', 'Accept-Ranges' => 'bytes'],
                 'inline'
             );
