@@ -99,87 +99,9 @@
             </x-card>
         </div>
     </div>
-    @if ($isEnrolled)
-        @php
-            $videos = $documents->filter(fn ($document) => $document->isVideo());
-        @endphp
-        @if ($videos->isNotEmpty())
-            <x-card class="p-4 mt-4">
-                <h2 class="h5 mb-3">Video bài giảng</h2>
-                @foreach ($videos as $video)
-                    @php
-                        $progress = $progressByDocument[$video->id] ?? null;
-                    @endphp
-                    <div class="mb-4" @if ($video->allow_view) data-video-progress @endif>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div class="fw-semibold">{{ $video->title }}</div>
-                            @if ($video->allow_view)
-                                <span class="small text-muted" data-progress-text>{{ $progress?->completed_at ? 'Đã hoàn thành' : ($progress ? 'Đã xem '.$progress->percent.'%' : 'Chưa xem') }}</span>
-                            @endif
-                        </div>
-                        @if ($video->allow_view)
-                            <video class="w-100 rounded bg-dark" style="max-height: 360px" controls preload="metadata" @unless ($video->allow_download) controlsList="nodownload" oncontextmenu="return false" @endunless
-                                src="{{ route('courses.documents.show', [$course, $video]) }}"
-                                data-progress-url="{{ route('student.documents.progress', $video) }}"
-                                data-token="{{ csrf_token() }}"
-                                data-resume="{{ $progress && ! $progress->completed_at ? $progress->position_seconds : 0 }}"></video>
-                            <div class="progress lm-progress mt-2" role="progressbar" aria-label="Tiến độ {{ $video->title }}" aria-valuenow="{{ $progress?->percent ?? 0 }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" data-progress-bar style="width: {{ $progress?->percent ?? 0 }}%"></div></div>
-                        @else
-                            <p class="text-muted small mb-2">Video này không cho phép xem trực tuyến.</p>
-                        @endif
-                        @if ($video->allow_download)
-                            <x-button :href="route('courses.documents.download', [$course, $video])" variant="outline-secondary" class="btn-sm mt-2"><i class="bi bi-download me-1" aria-hidden="true"></i>Tải video</x-button>
-                        @endif
-                    </div>
-                @endforeach
-            </x-card>
-        @endif
-        <x-card class="p-4 mt-4">
-            <h2 class="h5 mb-3">Bài tập &amp; tài liệu</h2>
-            <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead><tr><th>Tên bài tập</th><th class="d-none d-md-table-cell">Bài học</th><th>Tiến độ</th><th class="text-end">Thao tác</th></tr></thead>
-                    <tbody>
-                        @php
-                            $nonVideoDocs = $documents->reject(fn ($document) => $document->isVideo());
-                        @endphp
-                        @forelse ($nonVideoDocs as $document)
-                            <tr>
-                                <td><div class="fw-semibold">{{ $document->title }}</div><div class="small text-muted">{{ $document->original_name }} · {{ number_format($document->size / 1024, 0, ',', '.') }} KB</div></td>
-                                <td class="d-none d-md-table-cell">{{ $document->lesson ? $document->lesson->chapter->title.' / '.$document->lesson->title : '—' }}</td>
-                                <td>
-                                    @if (! $document->allow_view)
-                                        <span class="small text-muted">—</span>
-                                    @elseif ($progressByDocument[$document->id]?->completed_at ?? false)
-                                        <x-badge tone="success">Đã xem</x-badge>
-                                    @else
-                                        <x-badge tone="secondary">Chưa xem</x-badge>
-                                    @endif
-                                </td>
-                                <td class="text-end text-nowrap">
-                                    @if ($document->allow_view)
-                                        <x-button :href="route('courses.documents.show', [$course, $document])" variant="outline-primary" class="btn-sm" target="_blank"><i class="bi bi-eye me-1" aria-hidden="true"></i>Xem</x-button>
-                                    @endif
-                                    @if ($document->allow_download)
-                                        <x-button :href="route('courses.documents.download', [$course, $document])" variant="outline-secondary" class="btn-sm"><i class="bi bi-download me-1" aria-hidden="true"></i>Tải về</x-button>
-                                    @endif
-                                    @unless ($document->allow_view || $document->allow_download)
-                                        <span class="small text-muted">Không có quyền truy cập</span>
-                                    @endunless
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="4"><x-empty-state title="Chưa có bài tập" message="Giảng viên chưa có bài tập nào được duyệt cho khóa học này." icon="file-earmark" /></td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </x-card>
-    @endif
-
     <!-- GIÁO TRÌNH NỘI DUNG KHÓA HỌC (TS3-02, TS3-04) -->
-    <x-card class="p-4">
-        <h2 class="h4 mb-3">Giáo trình & Nội dung học tập</h2>
+    <x-card class="p-4 mb-4">
+        <h2 class="h4 mb-3">Giáo trình &amp; Nội dung học tập</h2>
         <p class="text-muted small mb-4">Danh sách các chương, bài học và học liệu đi kèm trong khóa học.</p>
 
         @if($course->chapters->isEmpty())
@@ -215,7 +137,7 @@
                                                 <div>
                                                     <div class="fw-semibold d-flex align-items-center gap-2">
                                                         @if($isEnrolled)
-                                                            <i class="bi {{ $isLessonDone ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted' }}"></i>
+                                                             <i class="bi {{ $isLessonDone ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted' }}"></i>
                                                         @endif
                                                         <span class="text-muted small">Bài {{ $cIndex + 1 }}.{{ $lIndex + 1 }}:</span>
                                                         {{ $lesson->title }}
@@ -223,8 +145,8 @@
                                                     <div class="small text-muted mt-1">
                                                         <i class="bi bi-paperclip me-1"></i>{{ $lesson->documents->count() }} học liệu
                                                         @foreach($lesson->documents as $doc)
-                                                            <span class="badge bg-light text-muted border ms-1">
-                                                                <i class="bi {{ $doc->typeIcon() }}"></i> {{ $doc->typeLabel() }}
+                                                            <span class="badge bg-light text-secondary border ms-1" title="{{ $doc->title }}">
+                                                                <i class="bi {{ $doc->typeIcon() }}"></i> {{ $doc->title }}
                                                             </span>
                                                         @endforeach
                                                     </div>
@@ -244,77 +166,49 @@
                 @endforeach
             </div>
         @endif
-    </x-card>
 
-    @if ($isEnrolled)
-    <!-- DANH SÁCH TÀI LIỆU KHÓA HỌC DÀNH CHO HỌC VIÊN -->
-    @php
-        $approvedDocuments = $course->documents()->with('lesson')->approved()->latest()->get();
-    @endphp
-
-    <x-card class="p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h2 class="h5 mb-1"><i class="bi bi-folder2-open text-primary me-2"></i>Tài liệu &amp; Học liệu khóa học ({{ $approvedDocuments->count() }})</h2>
-                <p class="text-muted small mb-0">Học liệu chính thức đã được kiểm duyệt: bạn có thể mở xem trực tuyến hoặc tải tệp gốc về máy.</p>
-            </div>
-            <span class="badge bg-light text-dark border">
-                {{ $approvedDocuments->count() }} tài liệu
-            </span>
-        </div>
-
-        @if($approvedDocuments->isEmpty())
-            <x-empty-state title="Chưa có học liệu" message="Khóa học này hiện chưa có tài liệu nào được công khai." />
-        @else
-            <div class="list-group list-group-flush border rounded-3 overflow-hidden">
-                @foreach($approvedDocuments as $doc)
-                    <div class="list-group-item p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <i class="bi {{ $doc->typeIcon() }} fs-2"></i>
-                            <div>
-                                <div class="fw-semibold text-dark">{{ $doc->title }}</div>
-                                <div class="small text-muted">
-                                    @if($doc->file_path)
-                                        <span>{{ $doc->original_name }} · {{ $doc->formattedSize() }}</span>
-                                    @elseif($doc->url)
-                                        <span class="text-truncate d-inline-block" style="max-width: 250px;">{{ $doc->url }}</span>
+        @if ($isEnrolled)
+            @php
+                $generalDocs = $documents->whereNull('lesson_id');
+            @endphp
+            @if ($generalDocs->isNotEmpty())
+                <div class="mt-4 pt-3 border-top">
+                    <h3 class="h6 fw-bold text-dark mb-3">
+                        <i class="bi bi-folder2-open text-primary me-2"></i>Tài liệu chung của khóa học ({{ $generalDocs->count() }})
+                    </h3>
+                    <div class="list-group list-group-flush border rounded-3 overflow-hidden">
+                        @foreach ($generalDocs as $doc)
+                            <div class="list-group-item p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi {{ $doc->typeIcon() }} fs-4 text-primary"></i>
+                                    <div>
+                                        <div class="fw-semibold text-dark">{{ $doc->title }}</div>
+                                        <div class="small text-muted">
+                                            @if($doc->file_path)
+                                                {{ $doc->original_name }} · {{ $doc->formattedSize() }}
+                                            @elseif($doc->url)
+                                                {{ $doc->url }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    @if($doc->allow_view)
+                                        <a href="{{ route('courses.documents.show', [$course, $doc]) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye me-1"></i>Xem
+                                        </a>
                                     @endif
-
-                                    @if($doc->lesson)
-                                        <span class="badge bg-light text-dark border ms-2">
-                                            <i class="bi bi-journal-bookmark me-1"></i>{{ $doc->lesson->title }}
-                                        </span>
-                                    @else
-                                        <span class="badge bg-secondary-subtle text-secondary border ms-2">
-                                            Tài liệu chung
-                                        </span>
+                                    @if($doc->allow_download)
+                                        <a href="{{ route('courses.documents.download', [$course, $doc]) }}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-download me-1"></i>Tải về
+                                        </a>
                                     @endif
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="d-flex align-items-center gap-2">
-                            @if($isEnrolled)
-                                @if($doc->allow_view)
-                                    <a href="{{ route('courses.documents.show', [$course, $doc]) }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye me-1"></i>Xem trực tuyến
-                                    </a>
-                                @endif
-                                @if($doc->allow_download)
-                                    <a href="{{ route('courses.documents.download', [$course, $doc]) }}" class="btn btn-sm btn-success">
-                                        <i class="bi bi-download me-1"></i>Tải về
-                                    </a>
-                                @endif
-                            @else
-                                <span class="small text-muted fst-italic">
-                                    <i class="bi bi-lock me-1"></i>Đăng ký khóa học để xem tài liệu
-                                </span>
-                            @endif
-                        </div>
+                        @endforeach
                     </div>
-                @endforeach
-            </div>
+                </div>
+            @endif
         @endif
     </x-card>
-    @endif
 @endsection

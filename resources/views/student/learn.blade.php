@@ -209,7 +209,7 @@
                                     <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm border bg-black">
                                         <iframe
                                             id="lessonYouTubePlayer"
-                                            src="{{ $videoDoc->isYouTube() ? $videoDoc->embed_url.'?enablejsapi=1&origin='.urlencode(request()->getSchemeAndHttpHost()) : $videoDoc->embed_url }}"
+                                            src="{{ $videoDoc->isYouTube() ? $videoDoc->embed_url.'?enablejsapi=1&origin='.urlencode(request()->getSchemeAndHttpHost()).'&playsinline=1&rel=0' : $videoDoc->embed_url }}"
                                             title="{{ $videoDoc->title }}"
                                             data-save-url="{{ route('student.lessons.video_position', [$course, $currentLesson]) }}"
                                             data-initial-position="{{ $initialPosition }}"
@@ -615,8 +615,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Cập nhật mốc xem lớn nhất (không bao giờ giảm khi tua lùi ôn lại bài)
-        if (video.currentTime > maxTimeWatched) {
+        // Cập nhật mốc xem lớn nhất (không bao giờ giảm khi tua lùi ôn lại bài; chặn nhảy vọt khi tua tới)
+        if (video.currentTime > maxTimeWatched && video.currentTime <= maxTimeWatched + 3.0) {
             maxTimeWatched = video.currentTime;
         }
 
@@ -686,7 +686,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 @if($videoDoc?->isYouTube())
 <script>
-// Theo dõi tiến độ video YouTube qua YouTube IFrame Player API.
+// Giới hạn tua video YouTube và đồng bộ tiến độ học tập qua YouTube IFrame Player API.
 (function () {
     const iframe = document.getElementById('lessonYouTubePlayer');
     if (!iframe) return;
@@ -695,10 +695,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const saveUrl = iframe.dataset.saveUrl;
     const csrfToken = '{{ csrf_token() }}';
     let player = null;
-    let maxTimeWatched = Math.max(initialPosition, 0);
+    let maxAllowedTime = Math.max(initialPosition, 0);
     let isCompleted = {{ $isCurrentLessonCompleted ? 'true' : 'false' }};
+    let isSnappingBack = false;
+    let noticeTimer = null;
+    let pollTimer = null;
     let saveTimer = null;
-    let sampleTimer = null;
     let lastSavedTime = 0;
 
     function formatTime(seconds) {
@@ -708,9 +710,20 @@ document.addEventListener('DOMContentLoaded', function () {
         return String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
     }
 
+    function showNotice() {
+        const notice = document.getElementById('youtube_seek_restriction_notice');
+        if (notice) {
+            notice.classList.remove('d-none');
+            clearTimeout(noticeTimer);
+            noticeTimer = setTimeout(() => {
+                notice.classList.add('d-none');
+            }, 3500);
+        }
+    }
+
     function updateUi(current, duration) {
-        if (!duration) return;
-        const percentage = Math.min(100, Math.round((maxTimeWatched / duration) * 100));
+        if (!duration || duration <= 0) return;
+        const percentage = Math.min(100, Math.round((maxAllowedTime / duration) * 100));
         const bar = document.getElementById('youtube_watch_bar');
         const text = document.getElementById('youtube_watch_text');
         const durationText = document.getElementById('youtube_duration_text');
@@ -720,16 +733,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function saveProgress(ended) {
-        if (!player || !window.YT) return;
-        const seconds = Math.floor(player.getCurrentTime() || maxTimeWatched);
+        if (!player || typeof player.getCurrentTime !== 'function') return;
         const duration = Math.floor(player.getDuration() || 0);
-        if (!ended && Math.abs(seconds - lastSavedTime) < 3 && lastSavedTime > 0) return;
-        lastSavedTime = seconds;
+        const sendSeconds = Math.floor(maxAllowedTime);
+        if (!ended && Math.abs(sendSeconds - lastSavedTime) < 3 && lastSavedTime > 0) return;
+        lastSavedTime = sendSeconds;
 
         fetch(saveUrl, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json'},
-            body: JSON.stringify({seconds: Math.floor(maxTimeWatched), duration: duration, is_ended: ended})
+            body: JSON.stringify({seconds: sendSeconds, duration: duration, is_ended: ended})
         }).then(response => response.json()).then(data => {
             if (data.is_completed) {
                 isCompleted = true;
@@ -748,41 +761,82 @@ document.addEventListener('DOMContentLoaded', function () {
         }).catch(error => console.error('Lỗi lưu tiến độ YouTube:', error));
     }
 
-    function sampleProgress() {
-        if (!player || !window.YT || player.getPlayerState() !== YT.PlayerState.PLAYING) return;
-        const current = player.getCurrentTime() || 0;
-        const duration = player.getDuration() || 0;
-        if (!isCompleted && current > maxTimeWatched + 2) {
-            player.seekTo(maxTimeWatched, true);
-            const notice = document.getElementById('youtube_seek_restriction_notice');
-            if (notice) notice.classList.remove('d-none');
+    // Kiểm tra và áp dụng chặn tua tới: chạy liên tục 200ms và ngay khi đổi trạng thái (BUFFERING, PAUSED, PLAYING)
+    function checkAndEnforceSeek() {
+        if (!player || typeof player.getCurrentTime !== 'function' || isSnappingBack) return;
+
+        let current = 0;
+        try {
+            current = player.getCurrentTime();
+        } catch (e) {
             return;
         }
-        if (current > maxTimeWatched) maxTimeWatched = current;
-        updateUi(current, duration);
+        if (typeof current !== 'number' || isNaN(current)) return;
+
+        const duration = (typeof player.getDuration === 'function' ? player.getDuration() : 0) || 0;
+        const state = typeof player.getPlayerState === 'function' ? player.getPlayerState() : -1;
+
+        // 1. CHẶN TUA TỚI: Nếu chưa hoàn thành và vị trí vượt quá mốc đã xem (+ 1.5s dung sai)
+        if (!isCompleted && duration > 0 && current > maxAllowedTime + 1.5) {
+            isSnappingBack = true;
+            try {
+                player.seekTo(maxAllowedTime, true);
+            } catch (e) {}
+            showNotice();
+            setTimeout(() => {
+                isSnappingBack = false;
+            }, 500);
+            return;
+        }
+
+        // 2. CẬP NHẬT TIẾN ĐỘ THẬT: Chỉ tăng khi đang PLAYING bình thường (bước nhảy <= 2.5s)
+        if (state === YT.PlayerState.PLAYING) {
+            if (current > maxAllowedTime && current <= maxAllowedTime + 2.5) {
+                maxAllowedTime = current;
+            }
+            updateUi(current, duration);
+        }
+
+        // 3. XEM GẦN HẾT VIDEO (còn <= 2s): Tự động đánh dấu hoàn thành
+        if (!isCompleted && duration > 0 && maxAllowedTime >= (duration - 2)) {
+            isCompleted = true;
+            maxAllowedTime = duration;
+            updateUi(maxAllowedTime, duration);
+            saveProgress(true);
+        }
     }
 
     function startPlayer() {
-        player = new YT.Player(iframe, {
+        if (player) return;
+        player = new YT.Player('lessonYouTubePlayer', {
             events: {
                 onReady: function (event) {
                     const duration = event.target.getDuration() || 0;
-                    if (initialPosition > 0 && duration > initialPosition) event.target.seekTo(initialPosition, true);
+                    if (initialPosition > 0 && duration > initialPosition) {
+                        event.target.seekTo(initialPosition, true);
+                    }
                     updateUi(initialPosition, duration);
                     saveProgress(false);
+
+                    // Polling định kỳ 200ms để bắt mọi thao tác tua chuột/phím tắt ngay tức thì
+                    if (!pollTimer) {
+                        pollTimer = setInterval(checkAndEnforceSeek, 200);
+                    }
                 },
                 onStateChange: function (event) {
+                    // Kiểm tra ngay khi có bất kỳ thay đổi trạng thái (BUFFERING, PLAYING, PAUSED)
+                    checkAndEnforceSeek();
+
                     if (event.data === YT.PlayerState.PLAYING) {
-                        if (!sampleTimer) sampleTimer = setInterval(sampleProgress, 500);
                         if (!saveTimer) saveTimer = setInterval(() => saveProgress(false), 5000);
                     } else if (event.data === YT.PlayerState.PAUSED) {
-                        clearInterval(sampleTimer); sampleTimer = null;
-                        clearInterval(saveTimer); saveTimer = null;
-                        sampleProgress(); saveProgress(false);
+                        if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
+                        saveProgress(false);
                     } else if (event.data === YT.PlayerState.ENDED) {
-                        clearInterval(sampleTimer); sampleTimer = null;
-                        clearInterval(saveTimer); saveTimer = null;
-                        maxTimeWatched = event.target.getDuration() || maxTimeWatched;
+                        if (saveTimer) { clearInterval(saveTimer); saveTimer = null; }
+                        isCompleted = true;
+                        maxAllowedTime = event.target.getDuration() || maxAllowedTime;
+                        updateUi(maxAllowedTime, event.target.getDuration() || 0);
                         saveProgress(true);
                     }
                 }
@@ -790,10 +844,28 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    window.onYouTubeIframeAPIReady = startPlayer;
-    const apiScript = document.createElement('script');
-    apiScript.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(apiScript);
+    function initYouTube() {
+        if (window.YT && window.YT.Player) {
+            startPlayer();
+        } else {
+            const oldReady = window.onYouTubeIframeAPIReady;
+            window.onYouTubeIframeAPIReady = function () {
+                if (typeof oldReady === 'function') oldReady();
+                startPlayer();
+            };
+            if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+                const apiScript = document.createElement('script');
+                apiScript.src = 'https://www.youtube.com/iframe_api';
+                document.head.appendChild(apiScript);
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initYouTube);
+    } else {
+        initYouTube();
+    }
 })();
 </script>
 @endif

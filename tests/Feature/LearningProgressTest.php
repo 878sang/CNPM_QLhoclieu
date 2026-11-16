@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Chapter;
 use App\Models\Course;
 use App\Models\Document;
 use App\Models\DocumentProgress;
 use App\Models\Enrollment;
+use App\Models\Lesson;
+use App\Models\Progress;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -167,27 +170,33 @@ class LearningProgressTest extends TestCase
         $this->assertDatabaseCount('document_progress', 0);
     }
 
-    public function test_course_detail_shows_player_and_download_button_by_permission(): void
+    public function test_learn_page_shows_player_with_download_protection(): void
     {
-        $this->video(['title' => 'Chỉ xem', 'allow_download' => false]);
-        $this->video(['title' => 'Xem và tải', 'allow_download' => true]);
-        $this->video(['title' => 'Chỉ tải', 'allow_view' => false, 'allow_download' => true]);
+        $chapter = Chapter::factory()->create(['course_id' => $this->course->id]);
+        $lesson = Lesson::factory()->create(['chapter_id' => $chapter->id, 'status' => 'published']);
+        $this->video(['lesson_id' => $lesson->id, 'title' => 'Chỉ xem', 'allow_download' => false]);
 
-        $html = $this->actingAs($this->student)->get(route('student.courses.show', $this->course))->assertOk()->getContent();
+        $html = $this->actingAs($this->student)->get(route('student.courses.learn', [$this->course, $lesson]))->assertOk()->getContent();
 
-        $this->assertSame(2, substr_count($html, '<video'));
+        $this->assertSame(1, substr_count($html, '<video'));
         $this->assertSame(1, substr_count($html, 'controlsList="nodownload"'));
-        $this->assertSame(2, substr_count($html, 'Tải video'));
     }
 
-    public function test_course_detail_shows_resume_position_and_percent(): void
+    public function test_learn_page_shows_resume_position(): void
     {
-        $video = $this->video();
-        DocumentProgress::factory()->create(['user_id' => $this->student->id, 'document_id' => $video->id, 'position_seconds' => 30, 'duration_seconds' => 100, 'percent' => 30]);
+        $chapter = Chapter::factory()->create(['course_id' => $this->course->id]);
+        $lesson = Lesson::factory()->create(['chapter_id' => $chapter->id, 'status' => 'published']);
+        $this->video(['lesson_id' => $lesson->id]);
+        Progress::factory()->create([
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+            'lesson_id' => $lesson->id,
+            'last_position_seconds' => 30,
+            'duration_seconds' => 100,
+        ]);
 
-        $this->actingAs($this->student)->get(route('student.courses.show', $this->course))
-            ->assertSee('data-resume="30"', false)
-            ->assertSee('Đã xem 30%');
+        $this->actingAs($this->student)->get(route('student.courses.learn', [$this->course, $lesson]))
+            ->assertSee('data-initial-position="30"', false);
     }
 
     public function test_course_progress_counts_completed_over_trackable_documents(): void
