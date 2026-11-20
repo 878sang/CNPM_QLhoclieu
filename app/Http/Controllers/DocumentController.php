@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\DocumentRequest;
+use App\Models\AppNotification;
 use App\Models\Course;
 use App\Models\Document;
 use App\Models\DocumentProgress;
@@ -52,6 +53,21 @@ class DocumentController extends Controller
         $this->attachStatusIfAvailable($data, $defaultStatus);
 
         $document = $course->documents()->create($data);
+
+        if ($document->isApproved()) {
+            $docActionUrl = $document->lesson_id
+                ? route('student.courses.learn', [$course->id, $document->lesson_id])
+                : route('student.courses.show', $course->id);
+
+            AppNotification::notifyCourseStudents(
+                $course,
+                "Học liệu mới trong khóa \"{$course->title}\"",
+                ($document->isVideo() ? 'Video bài giảng' : 'Tài liệu')." \"{$document->title}\" vừa được thêm vào khóa học.",
+                AppNotification::TYPE_COURSE,
+                Auth::id(),
+                $docActionUrl
+            );
+        }
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -198,6 +214,21 @@ class DocumentController extends Controller
         $this->attachStatusIfAvailable($data, $defaultStatus);
 
         $document = $course->documents()->create($data);
+
+        if ($document->isApproved()) {
+            $docActionUrl = $document->lesson_id
+                ? route('student.courses.learn', [$course->id, $document->lesson_id])
+                : route('student.courses.show', $course->id);
+
+            AppNotification::notifyCourseStudents(
+                $course,
+                "Học liệu mới trong khóa \"{$course->title}\"",
+                ($document->isVideo() ? 'Video bài giảng' : 'Tài liệu')." \"{$document->title}\" vừa được thêm vào khóa học.",
+                AppNotification::TYPE_COURSE,
+                Auth::id(),
+                $docActionUrl
+            );
+        }
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([

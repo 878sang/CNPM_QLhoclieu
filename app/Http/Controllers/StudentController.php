@@ -6,9 +6,11 @@ use App\Models\Assignment;
 use App\Models\Course;
 use App\Models\DocumentProgress;
 use App\Models\Lesson;
+use App\Models\LessonInteraction;
 use App\Models\Progress;
 use App\Models\Subject;
 use App\Models\User;
+use App\Models\VideoInteractionResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,21 +55,38 @@ class StudentController extends Controller
             'teacher',
             'chapters.lessons' => fn ($query) => $query->where('status', 'published'),
             'chapters.lessons.documents' => fn ($query) => $query->approved(),
+            'progresses' => fn ($query) => $query->where('user_id', $user->id),
+            'videoInteractions.responses' => fn ($query) => $query->where('user_id', $user->id),
         ]);
 
         $documents = $isEnrolled
             ? $course->documents()->approved()->with('lesson.chapter')->orderBy('title')->get()
             : collect();
 
+        $progressByDocument = $isEnrolled && $documents->isNotEmpty()
+            ? DocumentProgress::where('user_id', $user->id)->whereIn('document_id', $documents->pluck('id'))->get()->keyBy('document_id')
+            : collect();
+
+        $trackableDocs = $documents->where('allow_view', true);
+        $completedTrackableCount = $trackableDocs->filter(fn ($doc) => (bool) $progressByDocument->get($doc->id)?->completed_at)->count();
+        $progressPercent = $isEnrolled && $trackableDocs->count() > 0
+            ? (int) round($completedTrackableCount * 100 / $trackableDocs->count())
+            : 0;
+
+        $completedLessonIds = $isEnrolled
+            ? $course->progresses->where('is_completed', true)->pluck('lesson_id')->all()
+            : [];
+
         return view('student.course-detail', [
             'course' => $course,
             'isEnrolled' => $isEnrolled,
             'documents' => $documents,
-            'progressByDocument' => DocumentProgress::where('user_id', auth()->id())->whereIn('document_id', $documents->pluck('id'))->get()->keyBy('document_id'),
-            'progressPercent' => $isEnrolled ? Course::withProgressFor(auth()->user())->find($course->id)->progress_percent : 0,
+            'progressByDocument' => $progressByDocument,
+            'progressPercent' => $progressPercent,
             'percentage' => $course->progressPercentageFor($user),
             'progressStatus' => $course->progressStatusFor($user),
             'lastLesson' => $course->lastStudiedLessonFor($user),
+            'completedLessonIds' => $completedLessonIds,
         ]);
     }
 
@@ -84,7 +103,7 @@ class StudentController extends Controller
     public function search(Request $request): View
     {
         $term = trim((string) $request->query('q'));
-        $courses = Course::with('subject')->where('status', 'public')
+        $courses = Course::with(['subject', 'teacher'])->where('status', 'public')
             ->when($term !== '', function ($query) use ($term): void {
                 $query->where(fn ($query) => $query->where('title', 'like', "%{$term}%")
                     ->orWhere('description', 'like', "%{$term}%")
@@ -114,6 +133,7 @@ class StudentController extends Controller
             ->with([
                 'lessons' => fn ($query) => $query->where('status', 'published'),
                 'lessons.documents' => fn ($query) => $query->approved(),
+                'lessons.documents.videoInteractions',
                 'lessons.assignments' => fn ($query) => $query->where('status', 'published')->latest(),
             ])
             ->orderBy('position')
@@ -132,6 +152,9 @@ class StudentController extends Controller
                 'completedLessonIds' => [],
                 'currentProgress' => null,
                 'percentage' => 0,
+                'videoInteractions' => collect(),
+                'videoResponsesByInteraction' => collect(),
+                'lessonInteractions' => collect(),
             ]);
         }
 
@@ -158,6 +181,34 @@ class StudentController extends Controller
         $completedLessonIds = $progresses->where('is_completed', true)->pluck('lesson_id')->all();
         $currentProgress = $progresses->firstWhere('lesson_id', $lesson->id);
 
+        // Tương tác trên video (câu hỏi theo mốc thời gian)
+        $videoDoc = $lesson->documents->first(fn ($d) => $d->isVideo());
+        $videoInteractions = $videoDoc
+            ? $videoDoc->videoInteractions()->orderBy('timestamp_seconds')->get()
+            : collect();
+        $videoResponsesByInteraction = $videoInteractions->isNotEmpty()
+            ? VideoInteractionResponse::where('user_id', $user->id)
+                ->whereIn('video_interaction_id', $videoInteractions->pluck('id'))
+                ->get()
+                ->keyBy('video_interaction_id')
+            : collect();
+
+        // Tương tác / Hỏi đáp bài học
+        $lessonInteractions = LessonInteraction::with([
+            'user:id,name,role_id',
+            'user.role:id,name,display_name',
+            'replies.user:id,name,role_id',
+            'replies.user.role:id,name,display_name',
+            'likedByUsers:id',
+        ])
+            ->where('course_id', $course->id)
+            ->where('lesson_id', $lesson->id)
+            ->whereNull('parent_id')
+            ->where('status', '!=', LessonInteraction::STATUS_HIDDEN)
+            ->orderByDesc('is_pinned')
+            ->latest()
+            ->get();
+
         return view('student.learn', [
             'course' => $course,
             'chapters' => $chapters,
@@ -167,6 +218,9 @@ class StudentController extends Controller
             'completedLessonIds' => $completedLessonIds,
             'currentProgress' => $currentProgress,
             'percentage' => $course->progressPercentageFor($user),
+            'videoInteractions' => $videoInteractions,
+            'videoResponsesByInteraction' => $videoResponsesByInteraction,
+            'lessonInteractions' => $lessonInteractions,
         ]);
     }
 
@@ -261,7 +315,9 @@ class StudentController extends Controller
             'teacher',
             'enrollments' => fn ($query) => $query->where('user_id', $userId),
             'chapters.lessons' => fn ($query) => $query->where('status', 'published'),
+            'chapters.lessons.documents:id,lesson_id,type,mime_type,original_name,status,approval_status',
             'progresses' => fn ($query) => $query->where('user_id', $userId),
+            'videoInteractions.responses' => fn ($query) => $query->where('user_id', $userId),
         ])
             ->whereHas('enrollments', fn ($query) => $query->where('user_id', $userId))
             ->withProgressFor(auth()->user())

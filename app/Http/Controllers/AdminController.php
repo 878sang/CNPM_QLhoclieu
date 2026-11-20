@@ -3,24 +3,40 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAdminUserRequest;
+use App\Models\Assignment;
 use App\Models\Course;
+use App\Models\Document;
+use App\Models\LessonInteraction;
 use App\Models\Role;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AdminController extends Controller
 {
     public function dashboard(): View
     {
+        $roleCounts = User::query()
+            ->join('roles', 'users.role_id', '=', 'roles.id')
+            ->select('roles.name', DB::raw('COUNT(users.id) as total'))
+            ->groupBy('roles.name')
+            ->pluck('total', 'name');
+
         return view('admin.dashboard', [
-            'userCount' => User::count(),
-            'teacherCount' => User::whereRelation('role', 'name', 'teacher')->count(),
-            'studentCount' => User::whereRelation('role', 'name', 'student')->count(),
+            'userCount' => (int) $roleCounts->sum(),
+            'teacherCount' => (int) ($roleCounts['teacher'] ?? 0),
+            'studentCount' => (int) ($roleCounts['student'] ?? 0),
             'courseCount' => Course::count(),
             'subjectCount' => Subject::count(),
+            'pendingReviewCount' => Document::where('approval_status', Document::STATUS_PENDING)->count()
+                + Assignment::where('status', Assignment::STATUS_PENDING)->count(),
+            'openQuestionsCount' => LessonInteraction::whereNull('parent_id')
+                ->where('type', LessonInteraction::TYPE_QUESTION)
+                ->where('status', LessonInteraction::STATUS_OPEN)
+                ->count(),
             'recentUsers' => User::with('role')->latest()->limit(5)->get(),
         ]);
     }

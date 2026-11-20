@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppNotification;
 use App\Models\Chapter;
 use App\Models\Course;
 use App\Models\Lesson;
@@ -57,7 +58,19 @@ class LessonController extends Controller
             $updateData['status'] = $validated['status'];
         }
 
+        $wasPublished = $lesson->status === 'published';
         $lesson->update($updateData);
+
+        if (! $wasPublished && $lesson->status === 'published') {
+            AppNotification::notifyCourseStudents(
+                $course,
+                "Bài giảng mới trong khóa \"{$course->title}\"",
+                "Bài giảng \"{$lesson->title}\" vừa được xuất bản. Hãy vào học ngay!",
+                AppNotification::TYPE_COURSE,
+                Auth::id(),
+                route('student.courses.learn', [$course, $lesson])
+            );
+        }
 
         return redirect()->back()->with('status', 'Đã cập nhật bài học thành công.');
     }
@@ -66,9 +79,40 @@ class LessonController extends Controller
     {
         abort_unless(Auth::user()?->hasRole('admin'), 403);
 
-        $lesson->load('documents');
+        $lesson->load(['documents', 'chapter.course']);
+        $wasPublished = $lesson->status === 'published';
         $lesson->update(['status' => 'published']);
-        $lesson->documents()->where('status', 'pending')->update(['status' => 'approved', 'rejection_reason' => null]);
+        $lesson->documents()->where('status', 'pending')->update([
+            'status' => 'approved',
+            'approval_status' => 'approved',
+            'rejection_reason' => null,
+        ]);
+
+        $course = $lesson->chapter?->course;
+        if ($course) {
+            if ($course->teacher_id) {
+                AppNotification::notifyUsers(
+                    [$course->teacher_id],
+                    'Bài giảng đã được phê duyệt',
+                    "Bài giảng \"{$lesson->title}\" trong khóa \"{$course->title}\" đã được Quản trị viên phê duyệt và xuất bản.",
+                    AppNotification::TYPE_APPROVAL,
+                    Auth::id(),
+                    $course->id,
+                    route('courses.show', ['course' => $course->id, 'lesson_id' => $lesson->id, 'tab' => 'content'])
+                );
+            }
+
+            if (! $wasPublished) {
+                AppNotification::notifyCourseStudents(
+                    $course,
+                    "Bài giảng mới trong khóa \"{$course->title}\"",
+                    "Bài giảng \"{$lesson->title}\" đã sẵn sàng. Bấm để vào học ngay!",
+                    AppNotification::TYPE_COURSE,
+                    $course->teacher_id ?: Auth::id(),
+                    route('student.courses.learn', [$course, $lesson])
+                );
+            }
+        }
 
         return back()->with('status', "Đã duyệt bài giảng \"{$lesson->title}\".");
     }
@@ -78,8 +122,26 @@ class LessonController extends Controller
         abort_unless(Auth::user()?->hasRole('admin'), 403);
 
         $reason = trim((string) $request->input('reason', 'Nội dung chưa phù hợp.'));
+        $lesson->load('chapter.course');
         $lesson->update(['status' => 'rejected']);
-        $lesson->documents()->where('status', 'pending')->update(['status' => 'rejected', 'rejection_reason' => $reason]);
+        $lesson->documents()->where('status', 'pending')->update([
+            'status' => 'rejected',
+            'approval_status' => 'rejected',
+            'rejection_reason' => $reason,
+        ]);
+
+        $course = $lesson->chapter?->course;
+        if ($course?->teacher_id) {
+            AppNotification::notifyUsers(
+                [$course->teacher_id],
+                'Bài giảng bị từ chối phê duyệt',
+                "Bài giảng \"{$lesson->title}\" bị từ chối. Lý do: {$reason}",
+                AppNotification::TYPE_APPROVAL,
+                Auth::id(),
+                $course->id,
+                route('courses.show', ['course' => $course->id, 'lesson_id' => $lesson->id, 'tab' => 'content'])
+            );
+        }
 
         return back()->with('status', "Đã từ chối bài giảng \"{$lesson->title}\".");
     }

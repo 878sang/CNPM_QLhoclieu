@@ -10,11 +10,14 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentProgressController;
 use App\Http\Controllers\DocumentReviewController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\InteractionController;
 use App\Http\Controllers\LessonController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\VideoInteractionController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +48,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/tai-lieu', [DocumentController::class, 'adminStore'])->name('documents.store');
         Route::post('/tai-lieu/{document}/duyet', [DocumentReviewController::class, 'approve'])->name('documents.approve');
         Route::post('/tai-lieu/{document}/tu-choi', [DocumentReviewController::class, 'reject'])->name('documents.reject');
+        Route::post('/bai-tap/{assignment}/duyet', [DocumentReviewController::class, 'approveAssignment'])->name('assignments.approve');
+        Route::post('/bai-tap/{assignment}/tu-choi', [DocumentReviewController::class, 'rejectAssignment'])->name('assignments.reject');
         Route::post('/bai-hoc/{lesson}/duyet', [LessonController::class, 'approve'])->name('lessons.approve');
         Route::post('/bai-hoc/{lesson}/tu-choi', [LessonController::class, 'reject'])->name('lessons.reject');
     });
@@ -86,6 +91,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/{course}/tai-lieu/{document}/sua', [DocumentController::class, 'edit'])->scopeBindings()->name('documents.edit');
         Route::put('/{course}/tai-lieu/{document}', [DocumentController::class, 'update'])->scopeBindings()->name('documents.update');
         Route::delete('/{course}/tai-lieu/{document}', [DocumentController::class, 'destroy'])->scopeBindings()->name('documents.destroy');
+
+        // Tương tác trên video (Interactive Video Questions)
+        Route::get('/{course}/video/{document}/tuong-tac', [VideoInteractionController::class, 'manage'])->scopeBindings()->name('video-interactions.manage');
+        Route::post('/{course}/video/{document}/tuong-tac', [VideoInteractionController::class, 'store'])->scopeBindings()->name('video-interactions.store');
+        Route::put('/{course}/video/{document}/tuong-tac/{interaction}', [VideoInteractionController::class, 'update'])->name('video-interactions.update');
+        Route::delete('/{course}/video/{document}/tuong-tac/{interaction}', [VideoInteractionController::class, 'destroy'])->name('video-interactions.destroy');
 
         // Assignments (TS3-07, TS3-08)
         Route::get('/{course}/bai-tap', [AssignmentController::class, 'index'])->name('assignments.index');
@@ -132,9 +143,39 @@ Route::middleware('auth')->group(function () {
         Route::get('/khoa-hoc/{course}/bai-tap/{assignment}/tai-de', [SubmissionController::class, 'downloadAssignmentFile'])->name('assignments.download_file_student');
         Route::get('/khoa-hoc/{course}/bai-tap/{assignment}/xem-de', [SubmissionController::class, 'viewStudentAssignmentFile'])->name('assignments.preview_file_student');
         Route::get('/khoa-hoc/{course}/bai-tap/{assignment}/tai-dap-an', [SubmissionController::class, 'downloadStudentAnswerFile'])->name('assignments.answer_file');
+        Route::get('/khoa-hoc/{course}/bai-tap/{assignment}/tai-bai-nop', [SubmissionController::class, 'downloadStudentSubmissionFile'])->name('assignments.download_submission_file');
+        Route::get('/khoa-hoc/{course}/bai-tap/{assignment}/xem-bai-nop', [SubmissionController::class, 'viewStudentSubmissionFile'])->name('assignments.preview_submission_file');
     });
 
     Route::get('/giang-vien/hoc-vien', [TeacherController::class, 'students'])->middleware('role:teacher')->name('teacher.students');
+
+    // Quản lý tương tác trên video (tách riêng với Hỏi đáp)
+    Route::middleware('role:admin,teacher')->get('/tuong-tac-video', [VideoInteractionController::class, 'index'])->name('video-interactions.index');
+
+    // Quản lý Hỏi đáp & Thảo luận bài giảng
+    Route::middleware('role:admin,teacher')->prefix('tuong-tac')->name('interactions.')->group(function () {
+        Route::get('/', [InteractionController::class, 'index'])->name('index');
+        Route::post('/{interaction}/tra-loi', [InteractionController::class, 'reply'])->name('reply');
+        Route::patch('/{interaction}/trang-thai', [InteractionController::class, 'updateStatus'])->name('status');
+        Route::patch('/{interaction}/ghim', [InteractionController::class, 'togglePin'])->name('pin');
+    });
+    Route::post('/khoa-hoc/{course}/bai-hoc/{lesson}/tuong-tac', [InteractionController::class, 'store'])->name('interactions.store');
+    Route::post('/tuong-tac/{interaction}/thich', [InteractionController::class, 'toggleLike'])->name('interactions.like');
+    Route::delete('/tuong-tac/{interaction}', [InteractionController::class, 'destroy'])->name('interactions.destroy');
+
+    // Học viên trả lời câu hỏi tương tác trên video
+    Route::post('/hoc-vien/tuong-tac-video/{interaction}/tra-loi', [VideoInteractionController::class, 'answer'])->name('student.video-interactions.answer');
+
+    // Quản lý thông báo (tất cả vai trò)
+    Route::prefix('thong-bao')->name('notifications.')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/tao-moi', [NotificationController::class, 'create'])->middleware('role:admin,teacher')->name('create');
+        Route::post('/', [NotificationController::class, 'store'])->middleware('role:admin,teacher')->name('store');
+        Route::post('/doc-tat-ca', [NotificationController::class, 'markAllRead'])->name('mark_all_read');
+        Route::get('/{notification}/doc', [NotificationController::class, 'read'])->name('read');
+        Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
+    });
+
     Route::get('/doi-mat-khau', [AuthController::class, 'editPassword'])->name('password.edit');
     Route::put('/doi-mat-khau', [AuthController::class, 'updatePassword'])->name('password.change');
 });

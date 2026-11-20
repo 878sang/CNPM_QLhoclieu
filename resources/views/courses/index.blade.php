@@ -68,8 +68,8 @@
 
                         <div class="d-flex flex-wrap align-items-center gap-3 small text-secondary">
                             <span><i class="bi bi-people-fill text-primary me-1"></i><strong>{{ $course->enrollments_count }}</strong> học viên</span>
-                            <span><i class="bi bi-folder-fill text-warning me-1"></i><strong>{{ $course->chapters()->count() }}</strong> chương</span>
-                            <span><i class="bi bi-journal-text text-info me-1"></i><strong>{{ $course->documents()->count() }}</strong> học liệu</span>
+                            <span><i class="bi bi-folder-fill text-warning me-1"></i><strong>{{ $course->chapters_count }}</strong> chương</span>
+                            <span><i class="bi bi-journal-text text-info me-1"></i><strong>{{ $course->documents_count }}</strong> học liệu</span>
                         </div>
                     </div>
 

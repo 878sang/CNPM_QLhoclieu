@@ -9,6 +9,7 @@
     $initialType = old('type', $assignment->type ?? 'multiple_choice');
     $initialCount = (int) old('question_count', $assignment->question_count ?? 0);
     $initialQuestionTypes = old('question_types', $assignment->question_types ?? []);
+    $initialSubmissionMode = old('submission_mode', $assignment->submission_mode ?? 'answers');
 @endphp
 
 <div class="mb-4">
@@ -93,9 +94,10 @@
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small text-muted">Trạng thái phát hành</label>
+                        @php($assignmentStatus = old('status', $assignment?->status ?? 'published'))
                         <select name="status" class="form-select form-select-sm">
-                            <option value="draft" {{ old('status', $assignment->status ?? 'draft') === 'draft' ? 'selected' : '' }}>Bản nháp (chưa mở học viên)</option>
-                            <option value="published" {{ old('status', $assignment->status ?? 'draft') === 'published' ? 'selected' : '' }}>Xuất bản (học viên thấy ngay)</option>
+                            <option value="draft" {{ $assignmentStatus === 'draft' ? 'selected' : '' }}>Bản nháp (chưa mở học viên)</option>
+                            <option value="published" {{ in_array($assignmentStatus, ['published', 'pending'], true) ? 'selected' : '' }}>Gửi duyệt (chờ Admin duyệt)</option>
                         </select>
                     </div>
                     <div class="col-md-6">
@@ -103,6 +105,37 @@
                         <input type="datetime-local" name="deadline" class="form-control form-control-sm"
                             value="{{ old('deadline', $assignment?->deadline?->format('Y-m-d\TH:i') ?? '') }}">
                         <div class="form-text small">Để trống nếu không giới hạn.</div>
+                    </div>
+                </div>
+
+                {{-- Hình thức nộp bài của học viên --}}
+                <div class="mb-3 pt-2 border-top">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-send me-1 text-primary"></i>Hình thức nộp bài <span class="text-danger">*</span>
+                    </label>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="border rounded-3 p-3 submission-mode-option {{ $initialSubmissionMode === 'answers' ? 'border-primary bg-primary-subtle bg-opacity-25' : 'bg-light' }}" id="modeCardAnswers" style="cursor: pointer;" onclick="chooseSubmissionMode('answers')">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="radio" name="submission_mode" id="modeAnswers" value="answers" {{ $initialSubmissionMode === 'answers' ? 'checked' : '' }} onchange="chooseSubmissionMode('answers')">
+                                <label class="form-check-label fw-bold text-dark d-block" for="modeAnswers" style="cursor: pointer;">
+                                    <i class="bi bi-ui-checks text-success me-1"></i>Chọn / nhập đáp án trực tiếp
+                                    <span class="d-block small text-muted fw-normal mt-1">
+                                        Tạo danh sách câu hỏi trắc nghiệm (A/B/C/D) hoặc tự luận/điền số trực tiếp trên web. Hệ thống chấm điểm tự động theo đáp án đúng.
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="border rounded-3 p-3 submission-mode-option {{ $initialSubmissionMode === 'file' ? 'border-primary bg-primary-subtle bg-opacity-25' : 'bg-light' }}" id="modeCardFile" style="cursor: pointer;" onclick="chooseSubmissionMode('file')">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="radio" name="submission_mode" id="modeFile" value="file" {{ $initialSubmissionMode === 'file' ? 'checked' : '' }} onchange="chooseSubmissionMode('file')">
+                                <label class="form-check-label fw-bold text-dark d-block" for="modeFile" style="cursor: pointer;">
+                                    <i class="bi bi-file-earmark-arrow-up text-primary me-1"></i>Nộp file bài làm
+                                    <span class="d-block small text-muted fw-normal mt-1">
+                                        Học viên làm bài ra giấy/máy rồi tải file (PDF, Word, Ảnh chụp bài giải, Zip...) lên hệ thống. Giáo viên xem trực tiếp bài làm để chấm điểm và nhận xét.
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -145,9 +178,10 @@
             </div>
         </div>
 
-        {{-- CỘT PHẢI: Bảng nhập đáp án hỗn hợp không cần cách ra --}}
+        {{-- CỘT PHẢI: Bảng nhập đáp án (nếu chọn nhập đáp án) HOẶC Thông tin nộp file (nếu chọn nộp file) --}}
         <div class="col-lg-7 col-xl-7">
-            <div class="card border shadow-2xs rounded-3 p-4 h-100 bg-white d-flex flex-column">
+            {{-- Card Bảng đáp án: hiển thị khi chọn / nhập đáp án --}}
+            <div id="answersModeCard" class="card border shadow-2xs rounded-3 p-4 h-100 bg-white d-flex flex-column {{ $initialSubmissionMode === 'file' ? 'd-none' : '' }}">
                 {{-- Header đáp án đúng theo phong cách mẫu ảnh --}}
                 <div class="border-bottom pb-3 mb-3">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
@@ -198,15 +232,47 @@
                     {{-- Rendered dynamically by JavaScript --}}
                 </div>
             </div>
+
+            {{-- Card Nộp file bài làm: hiển thị khi chọn nộp file --}}
+            <div id="fileModeCard" class="card border shadow-2xs rounded-3 p-4 h-100 bg-white d-flex flex-column justify-content-center text-center {{ $initialSubmissionMode === 'file' ? '' : 'd-none' }}">
+                <div class="my-auto py-5 px-3">
+                    <div class="mb-3">
+                        <span class="rounded-circle bg-primary-subtle text-primary p-4 d-inline-flex fs-1 shadow-sm">
+                            <i class="bi bi-file-earmark-arrow-up"></i>
+                        </span>
+                    </div>
+                    <h4 class="h5 fw-bold text-dark mb-2">Hình thức: Nộp file bài làm</h4>
+                    <p class="text-muted small mx-auto mb-4" style="max-width: 480px;">
+                        Học sinh sẽ tải tệp đề bài ở cột bên trái về làm, sau đó nộp tệp bài làm (Word, PDF, Ảnh bài giải, Zip...) trực tiếp lên hệ thống.
+                    </p>
+                    <div class="card border-primary border-opacity-25 bg-primary-subtle bg-opacity-10 text-start p-3 rounded-3 mx-auto mb-3" style="max-width: 500px;">
+                        <h6 class="fw-bold text-primary mb-2 small"><i class="bi bi-check2-circle me-1"></i>Lợi ích của hình thức nộp file:</h6>
+                        <ul class="small text-muted mb-0 ps-3">
+                            <li class="mb-1">Không cần tạo bảng đáp án A/B/C/D phức tạp.</li>
+                            <li class="mb-1">Học sinh làm bài ra giấy rồi chụp ảnh hoặc làm trên Word/PDF để nộp.</li>
+                            <li>Giáo viên xem trực tiếp file bài làm, cho điểm và nhận xét chi tiết sau khi nộp.</li>
+                        </ul>
+                    </div>
+                    <div class="small text-muted">
+                        <i class="bi bi-info-circle text-primary me-1"></i>Hãy nhớ tải lên <strong>Tệp đề bài</strong> ở cột bên trái để học sinh có đề xem khi làm bài.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     {{-- Bottom submit buttons --}}
     <div class="card border rounded-3 p-3 bg-white shadow-2xs mt-4">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="text-muted small">
-                <i class="bi bi-check-circle-fill text-success me-1"></i>
-                Học viên sẽ thấy giao diện làm bài nhập đáp án hỗn hợp tương ứng (câu trắc nghiệm chọn A/B/C/D, câu tự luận nhập ô số) liền mạch theo đúng thứ tự.
+            <div class="text-muted small" id="bottomNoticeText">
+                @if($initialSubmissionMode === 'file')
+                    <i class="bi bi-file-earmark-arrow-up text-primary me-1"></i>
+                    Học viên sẽ thấy giao diện xem đề bài và khung tải tệp bài làm trực tiếp để nộp bài cho giáo viên chấm.
+                @else
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                    Học viên sẽ thấy giao diện làm bài nhập đáp án tương ứng (câu trắc nghiệm chọn A/B/C/D, câu tự luận nhập ô số) liền mạch theo đúng thứ tự.
+                @endif
+            </div>
             </div>
             <div class="d-flex gap-2">
                 <a href="{{ route('courses.assignments.index', $course) }}" class="btn btn-outline-secondary px-3">
@@ -308,6 +374,49 @@
 
 @push('scripts')
 <script>
+// Chuyển đổi giữa 2 hình thức: Chọn/nhập đáp án và Nộp file bài làm
+function chooseSubmissionMode(mode) {
+    const radioAnswers = document.getElementById('modeAnswers');
+    const radioFile = document.getElementById('modeFile');
+    const cardAnswers = document.getElementById('modeCardAnswers');
+    const cardFile = document.getElementById('modeCardFile');
+    const answersCard = document.getElementById('answersModeCard');
+    const fileCard = document.getElementById('fileModeCard');
+    const bottomNotice = document.getElementById('bottomNoticeText');
+
+    if (mode === 'file') {
+        if (radioFile) radioFile.checked = true;
+        if (cardFile) {
+            cardFile.classList.add('border-primary', 'bg-primary-subtle', 'bg-opacity-25');
+            cardFile.classList.remove('bg-light');
+        }
+        if (cardAnswers) {
+            cardAnswers.classList.remove('border-primary', 'bg-primary-subtle', 'bg-opacity-25');
+            cardAnswers.classList.add('bg-light');
+        }
+        if (answersCard) answersCard.classList.add('d-none');
+        if (fileCard) fileCard.classList.remove('d-none');
+        if (bottomNotice) {
+            bottomNotice.innerHTML = '<i class="bi bi-file-earmark-arrow-up text-primary me-1"></i>Học viên sẽ thấy giao diện xem đề bài và khung tải tệp bài làm trực tiếp để nộp bài cho giáo viên chấm.';
+        }
+    } else {
+        if (radioAnswers) radioAnswers.checked = true;
+        if (cardAnswers) {
+            cardAnswers.classList.add('border-primary', 'bg-primary-subtle', 'bg-opacity-25');
+            cardAnswers.classList.remove('bg-light');
+        }
+        if (cardFile) {
+            cardFile.classList.remove('border-primary', 'bg-primary-subtle', 'bg-opacity-25');
+            cardFile.classList.add('bg-light');
+        }
+        if (answersCard) answersCard.classList.remove('d-none');
+        if (fileCard) fileCard.classList.add('d-none');
+        if (bottomNotice) {
+            bottomNotice.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i>Học viên sẽ thấy giao diện làm bài nhập đáp án tương ứng (câu trắc nghiệm chọn A/B/C/D, câu tự luận nhập ô số) liền mạch theo đúng thứ tự.';
+        }
+    }
+}
+
 // Server initial state
 const existingAnswerKey = @json($assignment->answer_key ?? null);
 const existingQuestionTypes = @json($initialQuestionTypes ?? []);
@@ -581,6 +690,7 @@ if (chapterSelect && lessonSelect) {
 
 // Khởi chạy ban đầu
 renderAnswerKey();
+chooseSubmissionMode(@json($initialSubmissionMode));
 </script>
 @endpush
 @endsection

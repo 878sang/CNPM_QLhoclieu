@@ -72,6 +72,11 @@ class Document extends Model
         return $this->hasMany(DocumentProgress::class);
     }
 
+    public function videoInteractions(): HasMany
+    {
+        return $this->hasMany(VideoInteraction::class)->orderBy('timestamp_seconds');
+    }
+
     public function scopeApproved(Builder $query): void
     {
         $query->where(function (Builder $query): void {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppNotification;
 use App\Models\Assignment;
 use App\Models\Course;
 use App\Models\Submission;
@@ -49,7 +50,11 @@ class SubmissionController extends Controller
         $data = $request->validate([
             'answers' => 'nullable|array',
             'answers.*' => 'nullable|string|max:2000',
-            'file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,zip|max:20480',
+            'file' => $assignment->isFileSubmission()
+                ? 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png,zip|max:20480'
+                : 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,zip|max:20480',
+        ], [
+            'file.required' => 'Vui lòng chọn tệp bài làm của bạn để nộp.',
         ]);
 
         // Upload file bài làm
@@ -69,16 +74,19 @@ class SubmissionController extends Controller
             }
         }
 
-        if ($assignment->type === 'text' && ! $answers && ! $request->hasFile('file')) {
+        if ($assignment->isFileSubmission() && ! $filePath) {
+            return back()->withErrors(['file' => 'Vui lòng chọn tệp bài làm để nộp.'])->withInput();
+        }
+
+        if ($assignment->isAnswerSubmission() && ! $answers && ! $request->hasFile('file')) {
             return back()->withErrors(['submission' => 'Hãy nhập ít nhất một câu trả lời hoặc tải file bài làm lên.'])->withInput();
         }
 
         // Chấm điểm tự động nếu có đáp án
         $score = null;
-        $maxScore = null;
-        if ($assignment->answer_key && $answers) {
+        $maxScore = $assignment->maxScore();
+        if ($assignment->isAnswerSubmission() && $assignment->answer_key && $answers) {
             $score = $assignment->autoGrade($answers);
-            $maxScore = $assignment->maxScore();
         }
 
         $submission = Submission::create([
@@ -143,6 +151,16 @@ class SubmissionController extends Controller
             'graded_by' => Auth::id(),
             'graded_at' => now(),
         ]);
+
+        AppNotification::notifyUsers(
+            [$submission->user_id],
+            "Bài tập \"{$assignment->title}\" đã được chấm điểm",
+            "Điểm của bạn: {$submission->score}/{$submission->max_score}.".(filled($submission->feedback) ? ' Nhận xét: '.str($submission->feedback)->limit(120) : ''),
+            AppNotification::TYPE_ASSIGNMENT,
+            Auth::id(),
+            $course->id,
+            route('student.assignments.result', [$course, $assignment])
+        );
 
         return back()->with('status', 'Đã chấm điểm thành công!');
     }
@@ -299,6 +317,52 @@ class SubmissionController extends Controller
         return $disk->response($assignment->answer_file_path, $assignment->answer_original_name ?: 'dap-an', [
             'Content-Type' => $mimeType,
             'Content-Disposition' => 'inline; filename="'.addslashes($assignment->answer_original_name ?: 'dap-an').'"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    // ─── Học viên: Tải file bài làm đã nộp ─────────────────────────────
+    public function downloadStudentSubmissionFile(Course $course, Assignment $assignment)
+    {
+        abort_if($assignment->course_id !== $course->id, 404);
+        $this->checkEnrolled($course);
+
+        $submission = $assignment->submissions()
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        abort_if(! $submission->file_path, 404, 'Bạn chưa nộp tệp bài làm nào.');
+
+        return Storage::disk('private')->download(
+            $submission->file_path,
+            $submission->original_name ?: 'bai-nop.pdf'
+        );
+    }
+
+    // ─── Học viên: Xem file bài làm đã nộp trực tiếp ────────────────────
+    public function viewStudentSubmissionFile(Course $course, Assignment $assignment)
+    {
+        abort_if($assignment->course_id !== $course->id, 404);
+        $this->checkEnrolled($course);
+
+        $submission = $assignment->submissions()
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        abort_if(! $submission->file_path, 404, 'Bạn chưa nộp tệp bài làm nào.');
+
+        $disk = Storage::disk('private');
+        abort_unless($disk->exists($submission->file_path), 404);
+        $mimeType = $disk->mimeType($submission->file_path) ?: 'application/octet-stream';
+        $inlineTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
+        if (! in_array($mimeType, $inlineTypes, true)) {
+            return $disk->download($submission->file_path, $submission->original_name ?: 'bai-nop');
+        }
+
+        return $disk->response($submission->file_path, $submission->original_name ?: 'bai-nop', [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="'.addslashes($submission->original_name ?: 'bai-nop').'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

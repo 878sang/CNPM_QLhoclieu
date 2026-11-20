@@ -81,16 +81,20 @@
                                                 <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3 py-3">
                                                     <div class="flex-grow-1">
                                                         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                                            <span class="badge {{ $a->status === 'published' ? 'bg-success' : 'bg-warning text-dark' }} fw-semibold">
-                                                                {{ $a->status === 'published' ? 'Đã xuất bản' : 'Bản nháp' }}
+                                                            <span class="badge {{ $a->statusBadgeClass() }} fw-semibold">
+                                                                {{ $a->statusLabel() }}
                                                             </span>
-                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                                                {{ $a->typeLabel() }}
+                                                            <span class="badge {{ $a->isFileSubmission() ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }}">
+                                                                <i class="bi {{ $a->isFileSubmission() ? 'bi-file-earmark-arrow-up' : 'bi-ui-checks' }} me-1"></i>{{ $a->isFileSubmission() ? 'Nộp file bài làm' : $a->typeLabel() }}
                                                             </span>
                                                         </div>
                                                         <h3 class="h6 fw-bold mb-1 text-dark">{{ $a->title }}</h3>
                                                         <div class="small text-muted d-flex flex-wrap gap-3">
-                                                            <span><i class="bi bi-list-ol text-primary me-1"></i>{{ $a->question_count }} câu</span>
+                                                            @if($a->isFileSubmission())
+                                                                <span><i class="bi bi-file-earmark-arrow-up text-warning-emphasis me-1"></i>Nộp tệp bài làm</span>
+                                                            @else
+                                                                <span><i class="bi bi-list-ol text-primary me-1"></i>{{ $a->question_count }} câu</span>
+                                                            @endif
                                                             @if($a->deadline)
                                                                 <span class="{{ $a->isPastDeadline() ? 'text-danger fw-semibold' : '' }}">
                                                                     <i class="bi bi-calendar-event me-1"></i>Hạn: {{ $a->deadline->format('H:i - d/m/Y') }}
@@ -139,16 +143,20 @@
                             <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3 py-3">
                                 <div class="flex-grow-1">
                                     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                        <span class="badge {{ $a->status === 'published' ? 'bg-success' : 'bg-warning text-dark' }} fw-semibold">
-                                            {{ $a->status === 'published' ? 'Đã xuất bản' : 'Bản nháp' }}
+                                        <span class="badge {{ $a->statusBadgeClass() }} fw-semibold">
+                                            {{ $a->statusLabel() }}
                                         </span>
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                            {{ $a->typeLabel() }}
+                                        <span class="badge {{ $a->isFileSubmission() ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }}">
+                                            <i class="bi {{ $a->isFileSubmission() ? 'bi-file-earmark-arrow-up' : 'bi-ui-checks' }} me-1"></i>{{ $a->isFileSubmission() ? 'Nộp file bài làm' : $a->typeLabel() }}
                                         </span>
                                     </div>
                                     <h3 class="h6 fw-bold mb-1 text-dark">{{ $a->title }}</h3>
                                     <div class="small text-muted d-flex flex-wrap gap-3">
-                                        <span><i class="bi bi-list-ol text-primary me-1"></i>{{ $a->question_count }} câu</span>
+                                        @if($a->isFileSubmission())
+                                            <span><i class="bi bi-file-earmark-arrow-up text-warning-emphasis me-1"></i>Nộp tệp bài làm</span>
+                                        @else
+                                            <span><i class="bi bi-list-ol text-primary me-1"></i>{{ $a->question_count }} câu</span>
+                                        @endif
                                         @if($a->deadline)
                                             <span class="{{ $a->isPastDeadline() ? 'text-danger fw-semibold' : '' }}">
                                                 <i class="bi bi-calendar-event me-1"></i>Hạn: {{ $a->deadline->format('H:i - d/m/Y') }}

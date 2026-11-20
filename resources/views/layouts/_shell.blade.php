@@ -46,10 +46,50 @@
                 <button class="btn btn-link text-brand p-2" type="button" onclick="window.location='{{ route('student.search') }}'" aria-label="Tìm kiếm">
                     <i class="bi bi-search"></i>
                 </button>
-                <button class="btn btn-link text-brand p-2" type="button" aria-label="Thông báo">
-                    <i class="bi bi-bell"></i>
-                </button>
                 <div class="dropdown">
+                    <button class="btn btn-link text-brand p-2 position-relative" type="button" data-bs-toggle="dropdown" aria-label="Thông báo">
+                        <i class="bi bi-bell"></i>
+                        @if(($unreadNotificationsCount ?? 0) > 0)
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                                {{ $unreadNotificationsCount > 99 ? '99+' : $unreadNotificationsCount }}
+                            </span>
+                        @endif
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow p-0" style="width: 340px; max-width: 92vw;">
+                        <div class="p-2 px-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+                            <span class="fw-semibold small">Thông báo ({{ $unreadNotificationsCount ?? 0 }} mới)</span>
+                            @if(($unreadNotificationsCount ?? 0) > 0)
+                                <form method="POST" action="{{ route('notifications.mark_all_read') }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none small">Đọc tất cả</button>
+                                </form>
+                            @endif
+                        </div>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            @forelse($headerNotifications ?? [] as $hn)
+                                <a href="{{ route('notifications.read', $hn) }}" class="dropdown-item py-2 px-3 border-bottom text-wrap {{ $hn->isRead() ? '' : 'bg-primary-subtle bg-opacity-25' }}">
+                                    <div class="d-flex gap-2 align-items-start">
+                                        <i class="bi {{ $hn->typeIcon() }} mt-1"></i>
+                                        <div class="small">
+                                            <div class="fw-semibold text-dark">{{ \Illuminate\Support\Str::limit($hn->title, 50) }}</div>
+                                            <div class="text-muted">{{ \Illuminate\Support\Str::limit($hn->message, 70) }}</div>
+                                            <div class="text-muted" style="font-size: 0.72rem;">{{ $hn->created_at->diffForHumans() }}</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            @empty
+                                <div class="p-3 text-center small text-muted">Chưa có thông báo nào.</div>
+                            @endforelse
+                        </div>
+                        <div class="p-2 text-center border-top bg-light">
+                            <a href="{{ route('notifications.index') }}" class="small fw-semibold text-decoration-none">Xem tất cả thông báo</a>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-link text-brand p-2" type="button" data-theme-toggle aria-label="Đổi chế độ sáng tối" title="Đổi chế độ sáng / tối">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <div class="dropdown student-account-dropdown">
                     <button class="btn btn-link p-0" data-bs-toggle="dropdown" aria-label="Mở menu tài khoản">
                         <span class="lm-avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
                     </button>
@@ -91,6 +131,15 @@
                         <a class="nav-link {{ request()->routeIs('admin.documents.*') ? 'active' : '' }}" href="{{ route('admin.documents.index') }}">
                             <i class="bi bi-folder2-open me-2"></i>Tài liệu
                         </a>
+                        <a class="nav-link {{ request()->routeIs('interactions.*') ? 'active' : '' }}" href="{{ route('interactions.index') }}">
+                            <i class="bi bi-chat-dots me-2"></i>Hỏi đáp & Thảo luận
+                        </a>
+                        <a class="nav-link {{ request()->routeIs('notifications.*') ? 'active' : '' }} d-flex justify-content-between align-items-center" href="{{ route('notifications.index') }}">
+                            <span><i class="bi bi-bell me-2"></i>Thông báo</span>
+                            @if(($unreadNotificationsCount ?? 0) > 0)
+                                <span class="badge bg-danger rounded-pill">{{ $unreadNotificationsCount }}</span>
+                            @endif
+                        </a>
                     @else
                         <a class="nav-link {{ request()->routeIs('teacher.dashboard', 'courses.*') && !request()->routeIs('teacher.materials.*') ? 'active' : '' }}" href="{{ route('teacher.dashboard') }}">
                             <i class="bi bi-journal-text me-2"></i>Khóa học của tôi
@@ -100,6 +149,15 @@
                         </a>
                         <a class="nav-link {{ request()->routeIs('teacher.students') ? 'active' : '' }}" href="{{ route('teacher.students') }}">
                             <i class="bi bi-people me-2"></i>Học viên
+                        </a>
+                        <a class="nav-link {{ request()->routeIs('interactions.*') ? 'active' : '' }}" href="{{ route('interactions.index') }}">
+                            <i class="bi bi-chat-dots me-2"></i>Hỏi đáp & Thảo luận
+                        </a>
+                        <a class="nav-link {{ request()->routeIs('notifications.*') ? 'active' : '' }} d-flex justify-content-between align-items-center" href="{{ route('notifications.index') }}">
+                            <span><i class="bi bi-bell me-2"></i>Thông báo</span>
+                            @if(($unreadNotificationsCount ?? 0) > 0)
+                                <span class="badge bg-danger rounded-pill">{{ $unreadNotificationsCount }}</span>
+                            @endif
                         </a>
                         <a class="nav-link {{ request()->routeIs('teacher.statistics') ? 'active' : '' }}" href="{{ route('teacher.statistics') }}">
                             <i class="bi bi-bar-chart me-2"></i>Thống kê
@@ -126,6 +184,47 @@
                         <span class="mx-2">/</span>{{ $title ?? 'Tổng quan' }}
                     </div>
                     <div class="ms-auto d-flex align-items-center gap-3">
+                        <div class="dropdown">
+                            <button class="btn btn-link text-brand p-2 position-relative" type="button" data-bs-toggle="dropdown" aria-label="Thông báo">
+                                <i class="bi bi-bell"></i>
+                                @if(($unreadNotificationsCount ?? 0) > 0)
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                                        {{ $unreadNotificationsCount > 99 ? '99+' : $unreadNotificationsCount }}
+                                    </span>
+                                @endif
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end shadow p-0" style="width: 340px; max-width: 92vw;">
+                                <div class="p-2 px-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+                                    <span class="fw-semibold small">Thông báo ({{ $unreadNotificationsCount ?? 0 }} mới)</span>
+                                    @if(($unreadNotificationsCount ?? 0) > 0)
+                                        <form method="POST" action="{{ route('notifications.mark_all_read') }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none small">Đọc tất cả</button>
+                                        </form>
+                                    @endif
+                                </div>
+                                <div style="max-height: 300px; overflow-y: auto;">
+                                    @forelse($headerNotifications ?? [] as $hn)
+                                        <a href="{{ route('notifications.read', $hn) }}" class="dropdown-item py-2 px-3 border-bottom text-wrap {{ $hn->isRead() ? '' : 'bg-primary-subtle bg-opacity-25' }}">
+                                            <div class="d-flex gap-2 align-items-start">
+                                                <i class="bi {{ $hn->typeIcon() }} mt-1"></i>
+                                                <div class="small">
+                                                    <div class="fw-semibold text-dark">{{ \Illuminate\Support\Str::limit($hn->title, 50) }}</div>
+                                                    <div class="text-muted">{{ \Illuminate\Support\Str::limit($hn->message, 70) }}</div>
+                                                    <div class="text-muted" style="font-size: 0.72rem;">{{ $hn->created_at->diffForHumans() }}</div>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    @empty
+                                        <div class="p-3 text-center small text-muted">Chưa có thông báo nào.</div>
+                                    @endforelse
+                                </div>
+                                <div class="p-2 text-center border-top bg-light d-flex justify-content-between px-3">
+                                    <a href="{{ route('notifications.index') }}" class="small fw-semibold text-decoration-none">Xem tất cả</a>
+                                    <a href="{{ route('notifications.create') }}" class="small fw-semibold text-decoration-none text-primary">+ Gửi thông báo</a>
+                                </div>
+                            </div>
+                        </div>
                         <button class="btn btn-link text-brand p-2" type="button" data-theme-toggle aria-label="Đổi chế độ sáng tối">
                             <i class="bi bi-moon-stars"></i>
                         </button>
@@ -186,10 +285,14 @@
                         <a class="nav-link text-white" href="{{ route('admin.subjects.index') }}">Môn học</a>
                         <a class="nav-link text-white" href="{{ route('courses.index') }}">Khóa học</a>
                         <a class="nav-link text-white" href="{{ route('admin.documents.index') }}">Tài liệu</a>
+                        <a class="nav-link text-white" href="{{ route('interactions.index') }}">Hỏi đáp & Thảo luận</a>
+                        <a class="nav-link text-white" href="{{ route('notifications.index') }}">Thông báo</a>
                     @else
                         <a class="nav-link text-white" href="{{ route('teacher.dashboard') }}">Khóa học của tôi</a>
                         <a class="nav-link text-white" href="{{ route('teacher.materials.index') }}">Tài liệu</a>
                         <a class="nav-link text-white" href="{{ route('teacher.students') }}">Học viên</a>
+                        <a class="nav-link text-white" href="{{ route('interactions.index') }}">Hỏi đáp & Thảo luận</a>
+                        <a class="nav-link text-white" href="{{ route('notifications.index') }}">Thông báo</a>
                         <a class="nav-link text-white" href="{{ route('teacher.statistics') }}">Thống kê</a>
                     @endif
                 </nav>

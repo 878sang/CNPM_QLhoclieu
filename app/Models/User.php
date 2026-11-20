@@ -34,6 +34,26 @@ class User extends Authenticatable
         return $this->hasMany(Enrollment::class);
     }
 
+    public function appNotifications(): HasMany
+    {
+        return $this->hasMany(AppNotification::class, 'user_id')->latest();
+    }
+
+    public function sentNotifications(): HasMany
+    {
+        return $this->hasMany(AppNotification::class, 'sender_id')->latest();
+    }
+
+    public function lessonInteractions(): HasMany
+    {
+        return $this->hasMany(LessonInteraction::class);
+    }
+
+    public function videoInteractionResponses(): HasMany
+    {
+        return $this->hasMany(VideoInteractionResponse::class);
+    }
+
     public function hasRole(string|array $roles): bool
     {
         return in_array($this->role?->name, (array) $roles, true);

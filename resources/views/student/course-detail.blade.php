@@ -44,14 +44,30 @@
                 </div>
 
                 @if($isEnrolled)
+                    @php
+                        $courseVideoStats = $course->videoInteractionStatsFor(auth()->user());
+                    @endphp
                     <div class="p-3 bg-light rounded border">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="fw-semibold small"><i class="bi bi-bar-chart-fill text-primary me-1"></i>Tiến độ học tập của bạn</span>
-                            <span class="fw-bold text-primary">{{ $percentage }}%</span>
+                            <span class="fw-semibold small"><i class="bi bi-bar-chart-fill text-primary me-1"></i>Tiến độ xem bài giảng của bạn</span>
+                            <span class="fw-bold text-primary font-mono">{{ $percentage }}%</span>
                         </div>
                         <div class="progress" style="height: 10px;">
                             <div class="progress-bar progress-bar-striped bg-success" role="progressbar" style="width: {{ $percentage }}%" aria-valuenow="{{ $percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
+                        @if($courseVideoStats['total'] > 0)
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-2 border-top small">
+                                <span class="fw-semibold text-dark">
+                                    <i class="bi bi-patch-question-fill text-primary me-1"></i>Điểm tương tác video:
+                                </span>
+                                <span class="d-flex align-items-center gap-2">
+                                    <span class="badge {{ $courseVideoStats['answered'] === 0 ? 'bg-secondary' : ($courseVideoStats['score_10'] >= 8 ? 'bg-success' : ($courseVideoStats['score_10'] >= 5 ? 'bg-warning text-dark' : 'bg-danger')) }} font-mono">
+                                        {{ $courseVideoStats['answered'] > 0 ? number_format($courseVideoStats['score_10'], 1).'/10 điểm' : 'Chưa trả lời' }}
+                                    </span>
+                                    <span class="text-muted">Đúng {{ $courseVideoStats['correct'] }}/{{ $courseVideoStats['total'] }} câu</span>
+                                </span>
+                            </div>
+                        @endif
                         @if($lastLesson)
                             <div class="small text-muted mt-2">
                                 <i class="bi bi-bookmark-fill text-secondary me-1"></i>Đang học dở: <strong>{{ $lastLesson->chapter?->title }} - {{ $lastLesson->title }}</strong>
@@ -131,7 +147,7 @@
                                     <ul class="list-group list-group-flush">
                                         @foreach($chapter->lessons as $lIndex => $lesson)
                                             @php
-                                                $isLessonDone = $isEnrolled ? $lesson->isCompletedBy(auth()->user()) : false;
+                                                $isLessonDone = $isEnrolled && in_array($lesson->id, $completedLessonIds ?? [], true);
                                             @endphp
                                             <li class="list-group-item p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
                                                 <div>

@@ -63,14 +63,19 @@
                 </div>
                 <div class="d-flex justify-content-between mb-1">
                     <span><i class="bi bi-ui-checks me-1"></i>Hình thức:</span>
-                    <strong>{{ $assignment->isMultipleChoice() ? 'Trắc nghiệm' : 'Tự luận' }}</strong>
+                    <strong>{{ $assignment->isFileSubmission() ? 'Nộp file bài làm' : $assignment->typeLabel() }}</strong>
                 </div>
                 @if($submission->file_path)
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                        <span><i class="bi bi-paperclip me-1"></i>Tệp đính kèm:</span>
-                        <a href="{{ route('student.assignments.download_file_student', [$course, $assignment]) }}" class="badge bg-light text-primary border text-decoration-none py-1">
-                            {{ $submission->original_name ?: 'Tệp bài nộp' }}
-                        </a>
+                        <span><i class="bi bi-paperclip me-1"></i>Tệp bài đã nộp:</span>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('student.assignments.preview_submission_file', [$course, $assignment]) }}" target="_blank" class="badge bg-primary-subtle text-primary border text-decoration-none py-1" title="{{ $submission->original_name }}">
+                                <i class="bi bi-eye me-1"></i>Xem
+                            </a>
+                            <a href="{{ route('student.assignments.download_submission_file', [$course, $assignment]) }}" class="badge bg-light text-secondary border text-decoration-none py-1">
+                                <i class="bi bi-download me-1"></i>Tải về
+                            </a>
+                        </div>
                     </div>
                 @endif
             </div>

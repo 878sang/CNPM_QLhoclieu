@@ -10,6 +10,7 @@ use App\Models\Subject;
 use App\Models\Submission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -334,5 +335,111 @@ class AssignmentTest extends TestCase
             ->assertOk()
             ->assertSee('18432')
             ->assertSee('999');
+    }
+
+    public function test_teacher_can_create_file_submission_assignment(): void
+    {
+        $response = $this->actingAs($this->teacher)
+            ->post(route('courses.assignments.store', $this->course), [
+                'title' => 'Bài tập tự luận nộp file PDF',
+                'description' => 'Học viên làm bài ra giấy rồi chụp nộp file PDF',
+                'submission_mode' => 'file',
+                'type' => 'text',
+                'question_count' => 0,
+                'status' => 'published',
+            ]);
+
+        $response->assertRedirect(route('courses.assignments.index', $this->course));
+
+        $this->assertDatabaseHas('assignments', [
+            'course_id' => $this->course->id,
+            'title' => 'Bài tập tự luận nộp file PDF',
+            'submission_mode' => 'file',
+            'status' => 'published',
+        ]);
+
+        $assignment = Assignment::where('title', 'Bài tập tự luận nộp file PDF')->first();
+        $this->assertNotNull($assignment);
+        $this->assertTrue($assignment->isFileSubmission());
+        $this->assertFalse($assignment->isAnswerSubmission());
+
+        // Kiểm tra trang danh sách bài tập của giáo viên hiển thị badge Nộp file bài làm
+        $this->actingAs($this->teacher)
+            ->get(route('courses.assignments.index', $this->course))
+            ->assertOk()
+            ->assertSee('Nộp file bài làm');
+    }
+
+    public function test_student_must_upload_file_for_file_mode_assignment(): void
+    {
+        $assignment = Assignment::create([
+            'course_id' => $this->course->id,
+            'title' => 'Bài tập lớn hình học',
+            'submission_mode' => 'file',
+            'type' => 'text',
+            'question_count' => 0,
+            'status' => 'published',
+        ]);
+
+        // Học viên vào trang làm bài
+        $this->actingAs($this->student)
+            ->get(route('student.assignments.do', [$this->course, $assignment]))
+            ->assertOk()
+            ->assertSee('Nộp file bài làm')
+            ->assertSee('Bắt buộc tải tệp')
+            ->assertDontSee('data-opt="A"', false);
+
+        // Học sinh nộp bài nhưng KHÔNG đính kèm file -> Bị lỗi validation
+        $response = $this->actingAs($this->student)
+            ->from(route('student.assignments.do', [$this->course, $assignment]))
+            ->post(route('student.assignments.submit', [$this->course, $assignment]), []);
+
+        $response->assertRedirect(route('student.assignments.do', [$this->course, $assignment]));
+        $response->assertSessionHasErrors('file');
+
+        // Học sinh nộp bài kèm file hợp lệ -> Thành công
+        $file = UploadedFile::fake()->create('bai_lam_hinh_hoc.pdf', 1024, 'application/pdf');
+        $submitResponse = $this->actingAs($this->student)
+            ->post(route('student.assignments.submit', [$this->course, $assignment]), [
+                'file' => $file,
+            ]);
+
+        $submitResponse->assertRedirect(route('student.assignments.result', [$this->course, $assignment]));
+
+        $submission = $assignment->submissions()->where('user_id', $this->student->id)->first();
+        $this->assertNotNull($submission);
+        $this->assertNotNull($submission->file_path);
+        $this->assertSame('bai_lam_hinh_hoc.pdf', $submission->original_name);
+        $this->assertNull($submission->score); // Chưa chấm điểm
+
+        // Học viên tải và xem trước file của mình
+        $this->actingAs($this->student)
+            ->get(route('student.assignments.download_submission_file', [$this->course, $assignment]))
+            ->assertOk();
+
+        // Giáo viên vào xem bài nộp của học sinh
+        $this->actingAs($this->teacher)
+            ->get(route('courses.assignments.submissions.show', [$this->course, $assignment, $submission]))
+            ->assertOk()
+            ->assertSee('bai_lam_hinh_hoc.pdf');
+
+        // Giáo viên chấm điểm và nhận xét
+        $gradeResponse = $this->actingAs($this->teacher)
+            ->post(route('courses.assignments.submissions.grade', [$this->course, $assignment, $submission]), [
+                'score' => 9.5,
+                'feedback' => 'Bài làm trình bày rất rõ ràng và mạch lạc!',
+            ]);
+
+        $gradeResponse->assertRedirect();
+        $submission->refresh();
+        $this->assertEquals(9.5, (float) $submission->score);
+        $this->assertSame('Bài làm trình bày rất rõ ràng và mạch lạc!', $submission->feedback);
+
+        // Học viên vào xem kết quả sau khi giáo viên đã chấm
+        $this->actingAs($this->student)
+            ->get(route('student.assignments.result', [$this->course, $assignment]))
+            ->assertOk()
+            ->assertSee('9.5')
+            ->assertSee('Bài làm trình bày rất rõ ràng và mạch lạc!');
     }
 }

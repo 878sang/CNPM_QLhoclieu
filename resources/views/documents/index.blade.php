@@ -3,23 +3,19 @@
 @section('content')
 <x-page-header eyebrow="KHÓA HỌC / HỌC LIỆU" :title="$course->title" description="Tải lên, quản lý tài liệu, bài giảng (PDF, Word, PPT, video, link) và phân quyền học viên.">
     <x-slot:actions>
-        <x-button :href="route('courses.show', $course)" variant="outline-primary">
-            <i class="bi bi-diagram-3 me-1"></i>Xem cây chương bài
-        </x-button>
-        <x-button :href="route('courses.index')" variant="outline-secondary">Quay lại danh sách</x-button>
+        <div class="d-flex flex-wrap gap-2">
+            <x-button :href="route('courses.show', $course)" variant="outline-primary">
+                <i class="bi bi-diagram-3 me-1"></i>Xem cây chương bài
+            </x-button>
+            <x-button :href="route('courses.index')" variant="outline-secondary">Quay lại danh sách</x-button>
+        </div>
     </x-slot:actions>
 </x-page-header>
 
-@if (session('status'))
-    <x-alert tone="success" class="mb-4">{{ session('status') }}</x-alert>
-@endif
-
-<!-- DANH SÁCH HỌC LIỆU VÀ BỘ LỌC (TS2-07) -->
-<x-card class="p-4">
+<x-card class="p-3 p-md-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <h2 class="h5 mb-0">Danh sách học liệu trong khóa học ({{ $documents->total() }})</h2>
 
-        <!-- Bộ lọc -->
         <form method="GET" action="{{ route('courses.documents.index', $course) }}" class="d-flex flex-wrap gap-2">
             <select name="type" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
                 <option value="">-- Tất cả loại --</option>
@@ -46,16 +42,15 @@
     </div>
 
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
-            <thead><tr><th>Tài liệu</th><th class="d-none d-md-table-cell">Bài học</th><th>Quyền</th><th>Duyệt</th><th class="text-end">Thao tác</th></tr></thead>
         <table class="table align-middle mb-0 table-hover">
-            <thead class="table-light">
+            <thead>
                 <tr>
-                    <th>Học liệu</th>
+                    <th style="min-width: 240px;">Học liệu</th>
                     <th>Loại</th>
                     <th class="d-none d-md-table-cell">Gắn vào bài học</th>
                     <th>Quyền</th>
                     <th class="d-none d-lg-table-cell text-center">Thống kê</th>
+                    <th>Duyệt</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
             </thead>
@@ -63,24 +58,22 @@
                 @forelse($documents as $document)
                     <tr>
                         <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi {{ $document->typeIcon() }} fs-4"></i>
-                                <div>
-                                    <div class="fw-semibold text-dark">{{ $document->title }}</div>
-                                    <div class="small text-muted">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <i class="bi {{ $document->typeIcon() }} fs-4 flex-shrink-0"></i>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-truncate" style="max-width: 260px;" title="{{ $document->title }}">{{ $document->title }}</div>
+                                    <div class="small text-muted text-truncate" style="max-width: 260px;">
                                         @if($document->file_path)
                                             {{ $document->original_name }} · {{ $document->formattedSize() }}
                                         @elseif($document->url)
-                                            <span class="text-truncate d-inline-block" style="max-width: 250px;">{{ $document->url }}</span>
+                                            {{ $document->url }}
                                         @endif
                                     </div>
                                 </div>
                             </div>
                         </td>
-                        <td>
-                            <span class="badge bg-light text-dark border">
-                                {{ $document->typeLabel() }}
-                            </span>
+                        <td class="text-nowrap">
+                            <span class="badge bg-light text-dark border">{{ $document->typeLabel() }}</span>
                         </td>
                         <td class="d-none d-md-table-cell">
                             @if($document->lesson)
@@ -91,32 +84,37 @@
                             @endif
                         </td>
                         <td>
-                            <div class="d-flex flex-column gap-1">
+                            <div class="d-flex flex-column gap-1 align-items-start">
                                 <x-badge :tone="$document->allow_view ? 'success' : 'secondary'">
-                                    <i class="bi {{ $document->allow_view ? 'bi-check' : 'bi-x' }}"></i>Xem trực tuyến
+                                    <i class="bi {{ $document->allow_view ? 'bi-check' : 'bi-x' }}"></i> Xem trực tuyến
                                 </x-badge>
                                 <x-badge :tone="$document->allow_download ? 'primary' : 'secondary'">
-                                    <i class="bi {{ $document->allow_download ? 'bi-check' : 'bi-x' }}"></i>Tải về
+                                    <i class="bi {{ $document->allow_download ? 'bi-check' : 'bi-x' }}"></i> Tải về
                                 </x-badge>
                             </div>
                         </td>
-                        <td class="d-none d-lg-table-cell text-center">
+                        <td class="d-none d-lg-table-cell text-center text-nowrap">
                             <div class="small text-muted">
                                 <div><i class="bi bi-eye me-1"></i>{{ $document->views_count ?? 0 }} xem</div>
                                 <div><i class="bi bi-download me-1"></i>{{ $document->downloads_count ?? 0 }} tải</div>
                             </div>
                         </td>
-                        <td>
+                        <td class="text-nowrap">
                             @include('documents._status-badge', ['document' => $document])
                             @if ($document->approval_status === 'rejected')
-                                <div class="small text-danger mt-1">Lý do: {{ $document->rejection_reason }}</div>
+                                <div class="small text-danger mt-1 text-wrap" style="max-width: 180px;">Lý do: {{ $document->rejection_reason }}</div>
                             @endif
                         </td>
                         <td class="text-end text-nowrap">
                             <div class="btn-group btn-group-sm">
                                 <a href="{{ route('courses.documents.show', [$course, $document]) }}" target="_blank" class="btn btn-outline-primary" title="Xem trước học liệu">
-                                    <i class="bi bi-eye"></i> Xem
+                                    <i class="bi bi-eye"></i>
                                 </a>
+                                @if($document->isVideo())
+                                    <a href="{{ route('courses.video-interactions.manage', [$course, $document]) }}" class="btn btn-outline-info" title="Câu hỏi tương tác video">
+                                        <i class="bi bi-patch-question"></i>
+                                    </a>
+                                @endif
                                 @if($document->file_path)
                                     <a href="{{ route('courses.documents.download', [$course, $document]) }}" class="btn btn-outline-success" title="Tải về máy">
                                         <i class="bi bi-download"></i>
@@ -137,12 +135,11 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5"><x-empty-state title="Chưa có tài liệu" message="Hãy tải lên tài liệu đầu tiên cho khóa học." icon="file-earmark" /></td></tr>
                     <tr>
-                        <td colspan="6">
+                        <td colspan="7">
                             <x-empty-state
                                 title="Chưa có học liệu nào"
-                                message="Khóa học này chưa có tài liệu hay bài giảng nào. Hãy dùng form ở trên để thêm học liệu đầu tiên."
+                                message="Khóa học này chưa có tài liệu hay bài giảng nào."
                                 icon="file-earmark"
                             />
                         </td>

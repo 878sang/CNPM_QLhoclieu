@@ -1,11 +1,18 @@
-@props(['type' => 'danger', 'message' => null])
+@props(['type' => 'danger', 'tone' => null, 'message' => null])
+
+@php
+    $resolvedType = $tone ?? $type;
+    $icon = match ($resolvedType) {
+        'success' => 'check-circle-fill',
+        'warning' => 'exclamation-triangle-fill',
+        'info' => 'info-circle-fill',
+        default => 'exclamation-circle-fill',
+    };
+@endphp
 
 @if ($message || $slot->isNotEmpty())
-    <div class="alert alert-{{ $type }}" role="alert">
-        <i
-            class="bi bi-{{ $type === 'success' ? 'check-circle' : 'exclamation-circle' }} me-2"
-            aria-hidden="true"
-        ></i>
-        {{ $message ?? $slot }}
+    <div {{ $attributes->class(["alert alert-{$resolvedType} d-flex align-items-start gap-2"]) }} role="alert">
+        <i class="bi bi-{{ $icon }} mt-1 flex-shrink-0" aria-hidden="true"></i>
+        <div class="flex-grow-1 min-w-0">{{ $message ?? $slot }}</div>
     </div>
 @endif

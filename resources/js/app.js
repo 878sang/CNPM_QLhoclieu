@@ -1,5 +1,7 @@
-import 'bootstrap';
+import * as bootstrap from 'bootstrap';
 import '../css/app.css';
+
+window.bootstrap = bootstrap;
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {

@@ -73,6 +73,16 @@ class Lesson extends Model
         return $this->hasMany(Progress::class);
     }
 
+    public function interactions(): HasMany
+    {
+        return $this->hasMany(LessonInteraction::class);
+    }
+
+    public function videoInteractions(): HasMany
+    {
+        return $this->hasMany(VideoInteraction::class)->orderBy('timestamp_seconds');
+    }
+
     public function isCompletedBy(?User $user): bool
     {
         if (! $user) {
@@ -123,5 +133,48 @@ class Lesson extends Model
         }
 
         return 0;
+    }
+
+    /**
+     * Tính Điểm tương tác video của bài học cho học viên.
+     *
+     * @return array{total: int, answered: int, correct: int, score_10: ?float, accuracy_percent: ?int}
+     */
+    public function videoInteractionStatsFor(?User $user): array
+    {
+        if (! $user) {
+            return ['total' => 0, 'answered' => 0, 'correct' => 0, 'score_10' => null, 'accuracy_percent' => null];
+        }
+
+        $interactions = $this->relationLoaded('documents')
+            ? $this->documents->filter(fn ($d) => $d->isVideo())->flatMap(fn ($d) => $d->relationLoaded('videoInteractions') ? $d->videoInteractions : $d->videoInteractions()->get())
+            : $this->videoInteractions()->with(['responses' => fn ($q) => $q->where('user_id', $user->id)])->get();
+
+        $total = $interactions->count();
+        if ($total === 0) {
+            return ['total' => 0, 'answered' => 0, 'correct' => 0, 'score_10' => null, 'accuracy_percent' => null];
+        }
+
+        $answered = 0;
+        $correct = 0;
+        foreach ($interactions as $vi) {
+            $resp = $vi->relationLoaded('responses')
+                ? $vi->responses->firstWhere('user_id', $user->id)
+                : $vi->responses()->where('user_id', $user->id)->first();
+            if ($resp) {
+                $answered++;
+                if ($resp->is_correct) {
+                    $correct++;
+                }
+            }
+        }
+
+        return [
+            'total' => $total,
+            'answered' => $answered,
+            'correct' => $correct,
+            'score_10' => round($correct * 10 / $total, 1),
+            'accuracy_percent' => (int) round($correct * 100 / $total),
+        ];
     }
 }

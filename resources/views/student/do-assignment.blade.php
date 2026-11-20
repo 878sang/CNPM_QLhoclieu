@@ -7,8 +7,8 @@
             <i class="bi bi-arrow-left me-1"></i>Quay lại bài học
         </a>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6">
-                <i class="bi bi-ui-checks me-1"></i>{{ $assignment->typeLabel() }}
+            <span class="badge {{ $assignment->isFileSubmission() ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }} px-3 py-2 fs-6">
+                <i class="bi {{ $assignment->isFileSubmission() ? 'bi-file-earmark-arrow-up' : 'bi-ui-checks' }} me-1"></i>{{ $assignment->isFileSubmission() ? 'Nộp file bài làm' : $assignment->typeLabel() }}
             </span>
         </div>
     </div>
@@ -73,94 +73,146 @@
                 </div>
             @endif
 
-            {{-- Tùy chọn tải lên tệp bài làm thêm (nháp, bài giải tự luận) --}}
-            <div class="card border rounded-3 shadow-2xs p-3 bg-white mb-3">
-                <label class="form-label fw-bold text-dark small mb-1" for="submission-file">
-                    <i class="bi bi-paperclip text-primary me-1"></i>Đính kèm tệp bài làm / tự luận (tùy chọn)
-                </label>
-                <input id="submission-file" type="file" name="file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
-                <div class="form-text small text-muted">
-                    Hỗ trợ file PDF, Word, ảnh chụp bài giải tự luận (tối đa 20 MB). Bạn vẫn có thể điền bảng đáp án bên phải kết hợp với tải file.
+            @if(! $assignment->isFileSubmission())
+                {{-- Tùy chọn tải lên tệp bài làm thêm (nháp, bài giải tự luận) --}}
+                <div class="card border rounded-3 shadow-2xs p-3 bg-white mb-3">
+                    <label class="form-label fw-bold text-dark small mb-1" for="submission-file">
+                        <i class="bi bi-paperclip text-primary me-1"></i>Đính kèm tệp bài làm / tự luận (tùy chọn)
+                    </label>
+                    <input id="submission-file" type="file" name="file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
+                    <div class="form-text small text-muted">
+                        Hỗ trợ file PDF, Word, ảnh chụp bài giải tự luận (tối đa 20 MB). Bạn vẫn có thể điền bảng đáp án bên phải kết hợp với tải file.
+                    </div>
                 </div>
-            </div>
+            @endif
         </div>
 
-        {{-- CỘT PHẢI: Bảng đáp án (chuẩn theo mẫu ảnh của người dùng) --}}
+        {{-- CỘT PHẢI: Bảng đáp án HOẶC Khung nộp file bài làm --}}
         <div class="col-lg-5 col-xl-5">
-            <div class="card border rounded-3 shadow-2xs bg-white sticky-top" style="top: 20px; z-index: 10;">
-                {{-- Header đáp án theo ảnh mẫu --}}
-                <div class="card-header bg-white border-bottom p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="fw-bold text-dark mb-0">Đáp án</h5>
-                        <span class="badge bg-success-subtle text-success border border-success px-2 py-1 small fw-semibold" id="answeredBadge">
-                            Đã làm: <span id="answeredCount">0</span>/{{ $assignment->question_count }} câu
-                        </span>
+            @if($assignment->isFileSubmission())
+                {{-- KHỐI NỘP FILE BÀI LÀM --}}
+                <div class="card border rounded-3 shadow-2xs bg-white sticky-top" style="top: 20px; z-index: 10;">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <h5 class="fw-bold text-dark mb-0">
+                                <i class="bi bi-file-earmark-arrow-up text-primary me-2"></i>Nộp file bài làm
+                            </h5>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 small fw-semibold">
+                                Bắt buộc tải tệp
+                            </span>
+                        </div>
                     </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-dark small mb-2" for="submission-file-required">
+                                Chọn tệp bài làm của bạn <span class="text-danger">*</span>
+                            </label>
+                            <input id="submission-file-required" type="file" name="file" class="form-control form-control-lg" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" required onchange="handleFileSelect(this)">
+                            <div class="form-text small text-muted mt-2">
+                                <i class="bi bi-info-circle me-1"></i>Hỗ trợ các định dạng: <strong>PDF, Word (.doc, .docx), Ảnh bài giải (.jpg, .png), Tệp nén (.zip)</strong>. Dung lượng tối đa: 20 MB.
+                            </div>
+                        </div>
 
-                    {{-- Thông tin số câu/điểm --}}
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 small">
-                        <span class="text-danger fw-semibold">
-                            <i class="bi bi-mortarboard me-1"></i>Tổng số câu/điểm: <strong>{{ $assignment->question_count }} Câu / {{ $assignment->maxScore() }} điểm</strong>
-                        </span>
-                    </div>
-
-                    {{-- Progress bar hoàn thành --}}
-                    <div class="progress mt-2" style="height: 6px;">
-                        <div class="progress-bar bg-success progress-bar-striped" id="answeredProgress" role="progressbar" style="width: 0%"></div>
-                    </div>
-                </div>
-
-                {{-- Khung danh sách câu hỏi (Scrollable) --}}
-                <div class="card-body p-3 overflow-auto" style="max-height: 62vh; min-height: 380px;">
-                    <div class="row g-2 g-md-3">
-                        @for($i = 1; $i <= $assignment->question_count; $i++)
-                            @php($isMC = $assignment->isMultipleChoiceQuestion($i))
-                            <div class="col-6 mb-2">
-                                <div class="p-2 rounded-2 bg-light student-q-card">
-                                    <div class="d-flex align-items-center justify-content-between mb-2 ps-1">
-                                        <span class="fw-bold text-dark small">Câu {{ $i }}</span>
-                                        <span class="badge {{ $isMC ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }} py-0 px-1" style="font-size: 0.68rem;">
-                                            {{ $isMC ? 'Trắc nghiệm' : 'Điền số' }}
-                                        </span>
-                                    </div>
-                                    @if($isMC)
-                                        <div class="d-flex align-items-center gap-1 justify-content-between px-1">
-                                            @foreach(['A', 'B', 'C', 'D'] as $opt)
-                                                <button type="button"
-                                                    class="student-mc-btn"
-                                                    onclick="selectStudentMC(this, {{ $i }}, '{{ $opt }}')"
-                                                    data-opt="{{ $opt }}"
-                                                    data-q="{{ $i }}"
-                                                    id="btn_mc_{{ $i }}_{{ $opt }}">
-                                                    {{ $opt }}
-                                                </button>
-                                            @endforeach
-                                        </div>
-                                        <input type="hidden" name="answers[{{ $i }}]" id="answer_input_{{ $i }}" value="">
-                                    @else
-                                        <input type="text"
-                                            name="answers[{{ $i }}]"
-                                            id="answer_input_{{ $i }}"
-                                            class="form-control form-control-sm bg-white student-text-ans"
-                                            placeholder="Đáp án..."
-                                            oninput="updateAnswerCount()">
-                                    @endif
+                        {{-- Thông tin file đã chọn --}}
+                        <div id="selectedFileInfo" class="p-3 bg-light rounded-3 border d-none mb-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-check text-success fs-3"></i>
+                                <div class="overflow-hidden flex-grow-1">
+                                    <div class="fw-bold text-dark text-truncate small" id="selectedFileName"></div>
+                                    <div class="text-muted small" id="selectedFileSize"></div>
                                 </div>
                             </div>
-                        @endfor
+                        </div>
+
+                        <div class="alert alert-light border small text-muted mb-0">
+                            <i class="bi bi-shield-check text-success me-1"></i>
+                            Tệp bài làm của bạn sẽ được gửi trực tiếp đến giáo viên để chấm điểm và nhận xét chi tiết sau khi nộp.
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-light border-top p-3 text-end">
+                        <button type="button" class="btn btn-primary fw-bold px-4 py-2 w-100 shadow-sm" onclick="confirmFileSubmit()">
+                            <i class="bi bi-send-fill me-1"></i>Nộp bài tập ngay
+                        </button>
                     </div>
                 </div>
+            @else
+                {{-- KHỐI BẢNG ĐÁP ÁN (GIỮ NGUYÊN BÌNH THƯỜNG) --}}
+                <div class="card border rounded-3 shadow-2xs bg-white sticky-top" style="top: 20px; z-index: 10;">
+                    {{-- Header đáp án theo ảnh mẫu --}}
+                    <div class="card-header bg-white border-bottom p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h5 class="fw-bold text-dark mb-0">Đáp án</h5>
+                            <span class="badge bg-success-subtle text-success border border-success px-2 py-1 small fw-semibold" id="answeredBadge">
+                                Đã làm: <span id="answeredCount">0</span>/{{ $assignment->question_count }} câu
+                            </span>
+                        </div>
 
-                {{-- Nút nộp bài footer --}}
-                <div class="card-footer bg-light border-top p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllStudentAnswers()">
-                        <i class="bi bi-eraser me-1"></i>Xóa làm lại
-                    </button>
-                    <button type="button" class="btn btn-primary fw-bold px-4 shadow-sm" onclick="confirmSubmit()">
-                        <i class="bi bi-send-fill me-1"></i>Nộp bài thi
-                    </button>
+                        {{-- Thông tin số câu/điểm --}}
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 small">
+                            <span class="text-danger fw-semibold">
+                                <i class="bi bi-mortarboard me-1"></i>Tổng số câu/điểm: <strong>{{ $assignment->question_count }} Câu / {{ $assignment->maxScore() }} điểm</strong>
+                            </span>
+                        </div>
+
+                        {{-- Progress bar hoàn thành --}}
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-success progress-bar-striped" id="answeredProgress" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    {{-- Khung danh sách câu hỏi (Scrollable) --}}
+                    <div class="card-body p-3 overflow-auto" style="max-height: 62vh; min-height: 380px;">
+                        <div class="row g-2 g-md-3">
+                            @for($i = 1; $i <= $assignment->question_count; $i++)
+                                @php($isMC = $assignment->isMultipleChoiceQuestion($i))
+                                <div class="col-6 mb-2">
+                                    <div class="p-2 rounded-2 bg-light student-q-card">
+                                        <div class="d-flex align-items-center justify-content-between mb-2 ps-1">
+                                            <span class="fw-bold text-dark small">Câu {{ $i }}</span>
+                                            <span class="badge {{ $isMC ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }} py-0 px-1" style="font-size: 0.68rem;">
+                                                {{ $isMC ? 'Trắc nghiệm' : 'Điền số' }}
+                                            </span>
+                                        </div>
+                                        @if($isMC)
+                                            <div class="d-flex align-items-center gap-1 justify-content-between px-1">
+                                                @foreach(['A', 'B', 'C', 'D'] as $opt)
+                                                    <button type="button"
+                                                        class="student-mc-btn"
+                                                        onclick="selectStudentMC(this, {{ $i }}, '{{ $opt }}')"
+                                                        data-opt="{{ $opt }}"
+                                                        data-q="{{ $i }}"
+                                                        id="btn_mc_{{ $i }}_{{ $opt }}">
+                                                        {{ $opt }}
+                                                    </button>
+                                                @endforeach
+                                            </div>
+                                            <input type="hidden" name="answers[{{ $i }}]" id="answer_input_{{ $i }}" value="">
+                                        @else
+                                            <input type="text"
+                                                name="answers[{{ $i }}]"
+                                                id="answer_input_{{ $i }}"
+                                                class="form-control form-control-sm bg-white student-text-ans"
+                                                placeholder="Đáp án..."
+                                                oninput="updateAnswerCount()">
+                                        @endif
+                                    </div>
+                                </div>
+                            @endfor
+                        </div>
+                    </div>
+
+                    {{-- Nút nộp bài footer --}}
+                    <div class="card-footer bg-light border-top p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllStudentAnswers()">
+                            <i class="bi bi-eraser me-1"></i>Xóa làm lại
+                        </button>
+                        <button type="button" class="btn btn-primary fw-bold px-4 shadow-sm" onclick="confirmSubmit()">
+                            <i class="bi bi-send-fill me-1"></i>Nộp bài thi
+                        </button>
+                    </div>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 </form>
@@ -307,6 +359,37 @@ function confirmSubmit() {
     }
 
     document.getElementById('confirmModalText').innerHTML = text;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('submitConfirmModal')).show();
+}
+
+// Xử lý khi chọn file bài làm ở chế độ nộp file
+function handleFileSelect(input) {
+    const infoBox = document.getElementById('selectedFileInfo');
+    const nameEl = document.getElementById('selectedFileName');
+    const sizeEl = document.getElementById('selectedFileSize');
+
+    if (input.files && input.files.length > 0) {
+        const file = input.files[0];
+        nameEl.textContent = file.name;
+        const sizeKb = (file.size / 1024).toFixed(1);
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        sizeEl.textContent = file.size >= 1048576 ? `${sizeMb} MB` : `${sizeKb} KB`;
+        infoBox.classList.remove('d-none');
+    } else {
+        infoBox.classList.add('d-none');
+    }
+}
+
+// Xác nhận nộp bài cho chế độ nộp file
+function confirmFileSubmit() {
+    const fileInput = document.getElementById('submission-file-required');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Vui lòng chọn tệp bài làm của bạn trước khi nộp bài!');
+        if (fileInput) fileInput.focus();
+        return;
+    }
+    const fileName = fileInput.files[0].name;
+    document.getElementById('confirmModalText').innerHTML = `Bạn đang chuẩn bị nộp tệp: <strong>${fileName}</strong> cho giáo viên.`;
     bootstrap.Modal.getOrCreateInstance(document.getElementById('submitConfirmModal')).show();
 }
 

@@ -19,7 +19,7 @@ class CourseController extends Controller
         $user = $request->user();
 
         $courses = Course::with(['subject', 'teacher'])
-            ->withCount('enrollments')
+            ->withCount(['enrollments', 'chapters', 'documents'])
             ->unless($user->hasRole('admin'), fn ($query) => $query->where('teacher_id', $user->id))
             ->when($request->filled('q'), function ($query) use ($request): void {
                 $term = trim((string) $request->input('q'));
@@ -69,12 +69,45 @@ class CourseController extends Controller
         return view('courses.form', $this->formData($course));
     }
 
-    public function show(Course $course): View
+    public function show(Request $request, Course $course): View
     {
         $this->authorize('view', $course);
 
+        $activeTab = $request->query('tab', 'content');
+
+        $relations = ['subject', 'teacher'];
+        $course->loadCount(['enrollments', 'documents', 'assignments']);
+
+        if ($activeTab === 'progress') {
+            $relations = [
+                ...$relations,
+                'chapters.lessons.documents.videoInteractions.responses',
+                'videoInteractions.responses',
+                'enrollments.user',
+                'progresses',
+            ];
+        } elseif ($activeTab === 'students') {
+            $relations = [
+                ...$relations,
+                'chapters.lessons:id,chapter_id,title,position,status',
+                'enrollments.user',
+            ];
+        } elseif ($activeTab === 'documents') {
+            $relations = [
+                ...$relations,
+                'chapters.lessons:id,chapter_id,title,position,status',
+                'documents.lesson.chapter',
+            ];
+        } else {
+            // tab 'content' hoặc 'info': chỉ tải những quan hệ thực sự dùng
+            $relations = [
+                ...$relations,
+                'chapters.lessons.documents.videoInteractions',
+            ];
+        }
+
         return view('courses.show', [
-            'course' => $course->load(['subject', 'teacher', 'chapters.lessons.documents', 'chapters.lessons.assignments', 'enrollments.user', 'progresses.user']),
+            'course' => $course->load($relations),
         ]);
     }
 

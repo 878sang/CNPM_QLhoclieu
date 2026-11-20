@@ -152,6 +152,50 @@
 
     {{-- CỘT PHẢI: Bảng chi tiết câu trả lời của học viên đối chiếu với đáp án --}}
     <div class="col-lg-8 col-xl-8">
+        {{-- Xem trước tệp đính kèm bài làm --}}
+        @if($submission->file_path)
+            @php
+                $ext = strtolower(pathinfo($submission->original_name ?? '', PATHINFO_EXTENSION));
+            @endphp
+            <div class="card border rounded-3 shadow-2xs overflow-hidden bg-white mb-4">
+                <div class="card-header bg-light d-flex align-items-center justify-content-between py-2 px-3">
+                    <span class="fw-semibold small text-dark">
+                        <i class="bi bi-file-earmark-text text-primary me-1"></i>Xem trước tệp bài làm: <strong>{{ $submission->original_name }}</strong>
+                    </span>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('courses.assignments.submissions.preview_file', [$course, $assignment, $submission]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Xem riêng
+                        </a>
+                        <a href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-secondary py-0">
+                            <i class="bi bi-download me-1"></i>Tải về
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-2 bg-dark d-flex justify-content-center align-items-center" style="min-height: 400px; max-height: 75vh; overflow: auto;">
+                    @if($ext === 'pdf')
+                        <iframe src="{{ route('courses.assignments.submissions.preview_file', [$course, $assignment, $submission]) }}" title="Bài nộp" class="w-100 bg-white rounded border-0" style="height: 70vh; min-height: 480px;"></iframe>
+                    @elseif(in_array($ext, ['jpg', 'jpeg', 'png', 'webp']))
+                        <img src="{{ route('courses.assignments.submissions.preview_file', [$course, $assignment, $submission]) }}" alt="Bài nộp" class="img-fluid rounded" style="max-height: 70vh; object-fit: contain;">
+                    @else
+                        <div class="text-center p-4 text-white">
+                            <i class="bi bi-file-earmark-word fs-1 text-primary mb-2 d-block"></i>
+                            <h6>{{ $submission->original_name }}</h6>
+                            <p class="small text-white-50 mb-3">Tệp này cần được tải về máy để mở xem.</p>
+                            <a class="btn btn-primary btn-sm px-3" href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}">
+                                <i class="bi bi-download me-1"></i>Tải tệp bài nộp
+                            </a>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @elseif($assignment->isFileSubmission())
+            <div class="card border rounded-3 shadow-2xs p-5 bg-white text-center text-muted mb-4">
+                <i class="bi bi-file-earmark-x fs-1 text-secondary mb-2 d-block"></i>
+                <h6 class="fw-bold text-dark">Học viên chưa đính kèm tệp bài làm nào</h6>
+            </div>
+        @endif
+
+        @if($assignment->isAnswerSubmission() && $assignment->question_count > 0)
         <div class="card border rounded-3 shadow-2xs p-4 bg-white mb-4">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
                 <div>
@@ -221,38 +265,6 @@
                 @endfor
             </div>
         </div>
-
-        {{-- Xem trước tệp đính kèm (nếu học viên có tải lên) --}}
-        @if($submission->file_path)
-            @php
-                $ext = strtolower(pathinfo($submission->original_name ?? '', PATHINFO_EXTENSION));
-            @endphp
-            <div class="card border rounded-3 shadow-2xs overflow-hidden bg-white mb-4">
-                <div class="card-header bg-light d-flex align-items-center justify-content-between py-2 px-3">
-                    <span class="fw-semibold small text-dark">
-                        <i class="bi bi-file-earmark-text text-primary me-1"></i>Xem trước tệp bài làm: <strong>{{ $submission->original_name }}</strong>
-                    </span>
-                    <a href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}" class="btn btn-sm btn-outline-secondary py-0">
-                        <i class="bi bi-download me-1"></i>Tải về
-                    </a>
-                </div>
-                <div class="card-body p-2 bg-dark d-flex justify-content-center align-items-center" style="min-height: 400px; max-height: 75vh; overflow: auto;">
-                    @if($ext === 'pdf')
-                        <iframe src="{{ route('courses.assignments.submissions.preview_file', [$course, $assignment, $submission]) }}" title="Bài nộp" class="w-100 bg-white rounded border-0" style="height: 70vh; min-height: 480px;"></iframe>
-                    @elseif(in_array($ext, ['jpg', 'jpeg', 'png', 'webp']))
-                        <img src="{{ route('courses.assignments.submissions.preview_file', [$course, $assignment, $submission]) }}" alt="Bài nộp" class="img-fluid rounded" style="max-height: 70vh; object-fit: contain;">
-                    @else
-                        <div class="text-center p-4 text-white">
-                            <i class="bi bi-file-earmark-word fs-1 text-primary mb-2 d-block"></i>
-                            <h6>{{ $submission->original_name }}</h6>
-                            <p class="small text-white-50 mb-3">Tệp này cần được tải về máy để mở xem.</p>
-                            <a class="btn btn-primary btn-sm px-3" href="{{ route('courses.assignments.submissions.download', [$course, $assignment, $submission]) }}">
-                                <i class="bi bi-download me-1"></i>Tải tệp bài nộp
-                            </a>
-                        </div>
-                    @endif
-                </div>
-            </div>
         @endif
     </div>
 </div>

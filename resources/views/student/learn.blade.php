@@ -9,8 +9,12 @@
     $videoDoc = $currentLesson ? $currentLesson->documents->first(fn ($d) => $d->isVideo()) : null;
     $attachedDocs = $currentLesson ? $currentLesson->documents->filter(fn ($d) => !$d->isVideo()) : collect();
     $hasVideo = (bool) $videoDoc;
-    $defaultTab = $hasVideo ? 'video' : 'docs';
+    $interactionSubtab = session('interaction_subtab');
+    $defaultTab = $interactionSubtab ? 'interactions' : ($hasVideo ? 'video' : 'docs');
     $lessonPercentage = $currentLesson ? $currentLesson->progressPercentageFor($user) : 0;
+    $questionInteractions = ($lessonInteractions ?? collect())->filter(fn ($i) => $i->isQuestion())->values();
+    $discussionInteractions = ($lessonInteractions ?? collect())->filter(fn ($i) => ! $i->isQuestion())->values();
+    $activeInteractionSubtab = $interactionSubtab === 'discussion' ? 'discussion' : 'question';
 @endphp
 
 <div class="card border rounded-3 overflow-hidden shadow-sm bg-white mb-4">
@@ -129,6 +133,12 @@
                         </button>
                     </li>
                     @endif
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {{ $defaultTab === 'interactions' ? 'active' : '' }} fw-bold py-2" id="st-tab-interactions-head" data-bs-toggle="pill" data-bs-target="#st-tab-interactions-pane" type="button" role="tab">
+                            <i class="bi bi-chat-dots me-1 text-info"></i>Hỏi đáp & Thảo luận
+                            <span class="badge bg-info text-dark ms-1">{{ ($lessonInteractions ?? collect())->count() }}</span>
+                        </button>
+                    </li>
                 </ul>
 
                 <!-- NỘI DUNG CÁC TAB HỌC TẬP -->
@@ -175,8 +185,11 @@
                                             </span>
                                             <span class="small text-muted font-monospace" id="video_duration_text">00:00 / 00:00</span>
                                         </div>
-                                        <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar bg-success" id="video_watch_bar" role="progressbar" style="width: {{ $lessonPercentage }}%"></div>
+                                        <div class="position-relative my-1">
+                                            <div class="progress" style="height: 10px;">
+                                                <div class="progress-bar bg-success" id="video_watch_bar" role="progressbar" style="width: {{ $lessonPercentage }}%"></div>
+                                            </div>
+                                            <div id="html5_timeline_markers" class="position-absolute top-0 start-0 w-100 h-100" style="pointer-events: none;"></div>
                                         </div>
                                         <div class="small text-muted mt-1 fst-italic">
                                             * Video tiến độ bao nhiêu thì tiến độ học của bài giảng là bấy nhiêu và tự động đồng bộ sang giáo viên.
@@ -229,8 +242,11 @@
                                                 </span>
                                                 <span class="small text-muted font-monospace" id="youtube_duration_text">00:00 / 00:00</span>
                                             </div>
-                                            <div class="progress" style="height: 8px;">
-                                                <div class="progress-bar bg-success" id="youtube_watch_bar" role="progressbar" style="width: {{ $lessonPercentage }}%"></div>
+                                            <div class="position-relative my-1">
+                                                <div class="progress" style="height: 10px;">
+                                                    <div class="progress-bar bg-success" id="youtube_watch_bar" role="progressbar" style="width: {{ $lessonPercentage }}%"></div>
+                                                </div>
+                                                <div id="youtube_timeline_markers" class="position-absolute top-0 start-0 w-100 h-100" style="pointer-events: none;"></div>
                                             </div>
                                             @if($initialPosition > 0)
                                                 <div class="small text-muted mt-1"><i class="bi bi-bookmark-check text-success me-1"></i>Đã khôi phục vị trí đã xem.</div>
@@ -239,6 +255,58 @@
                                     @endif
                                     <div class="p-2 bg-white rounded border mt-2 small text-muted">
                                         <i class="bi bi-info-circle me-1 text-primary"></i>Video phát trực tuyến từ nền tảng liên kết. Bạn có thể bấm nút <strong>Đánh dấu hoàn thành</strong> ở trên sau khi xem xong.
+                                    </div>
+                                @endif
+
+                                @if(($videoInteractions ?? collect())->isNotEmpty())
+                                    @php
+                                        $totalViCount = $videoInteractions->count();
+                                        $answeredViCount = ($videoResponsesByInteraction ?? collect())->count();
+                                        $correctViCount = ($videoResponsesByInteraction ?? collect())->where('is_correct', true)->count();
+                                        $viScore10 = $totalViCount > 0 ? round($correctViCount * 10 / $totalViCount, 1) : 0;
+                                        $checkpointSpotsCount = $videoInteractions->pluck('timestamp_seconds')->unique()->count();
+                                    @endphp
+                                    <!-- THANH ĐIỂM TƯƠNG TÁC TRÊN VIDEO (TÁCH RIÊNG VỚI TIẾN ĐỘ XEM %) -->
+                                    <div class="mt-3 p-3 bg-white rounded-3 border" id="video_checkpoints_panel">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                            <div class="small fw-bold text-dark">
+                                                <i class="bi bi-patch-question-fill text-primary me-1"></i>
+                                                Bài học có {{ $checkpointSpotsCount }} lần tương tác ({{ $totalViCount }} câu hỏi trên video)
+                                            </div>
+                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                                <span
+                                                    class="badge font-mono {{ $answeredViCount === 0 ? 'bg-secondary' : ($viScore10 >= 8 ? 'bg-success' : ($viScore10 >= 5 ? 'bg-warning text-dark' : 'bg-danger')) }}"
+                                                    id="video_quiz_score_badge"
+                                                >
+                                                    Điểm tương tác: {{ number_format($viScore10, 1) }}/10
+                                                </span>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary" id="video_quiz_summary">
+                                                    Đã trả lời: {{ $answeredViCount }}/{{ $totalViCount }} · Đúng: {{ $correctViCount }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="small text-muted mb-2 d-flex flex-wrap gap-3">
+                                            <span><span class="d-inline-block rounded-circle bg-warning me-1" style="width:10px;height:10px;"></span>Chưa trả lời</span>
+                                            <span><span class="d-inline-block rounded-circle bg-success me-1" style="width:10px;height:10px;"></span>Trả lời đúng</span>
+                                            <span><span class="d-inline-block rounded-circle bg-danger me-1" style="width:10px;height:10px;"></span>Trả lời sai</span>
+                                            <span class="ms-auto fst-italic">* Điểm tương tác được tính tách riêng với tiến độ xem video (%).</span>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2" id="video_checkpoint_pills">
+                                            @foreach($videoInteractions as $idx => $vi)
+                                                @php
+                                                    $resp = ($videoResponsesByInteraction ?? collect())->get($vi->id);
+                                                @endphp
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm font-monospace video-checkpoint-pill {{ $resp ? ($resp->is_correct ? 'btn-success' : 'btn-danger') : 'btn-outline-warning text-dark' }}"
+                                                    data-interaction-id="{{ $vi->id }}"
+                                                    title="{{ $vi->question }}"
+                                                >
+                                                    <i class="bi {{ $resp ? ($resp->is_correct ? 'bi-check-circle-fill' : 'bi-x-circle-fill') : 'bi-question-circle' }} me-1"></i>
+                                                    Câu {{ $idx + 1 }} ({{ $vi->formattedTimestamp() }})
+                                                </button>
+                                            @endforeach
+                                        </div>
                                     </div>
                                 @endif
                             </div>
@@ -384,6 +452,127 @@
                         </div>
                     </div>
                     @endif
+
+                    <!-- ============================================== -->
+                    <!-- TAB: HỎI ĐÁP & THẢO LUẬN (TÁCH 2 TAB CON)      -->
+                    <!-- ============================================== -->
+                    <div class="tab-pane fade {{ $defaultTab === 'interactions' ? 'show active' : '' }}" id="st-tab-interactions-pane" role="tabpanel" aria-labelledby="st-tab-interactions-head">
+                        <div class="card border rounded-3 p-3 p-md-4 shadow-2xs mb-3">
+                            <!-- 2 TAB CON: CÂU HỎI CHO GIẢNG VIÊN & BÌNH LUẬN THẢO LUẬN -->
+                            <ul class="nav nav-tabs mb-3" id="studentInteractionSubTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button
+                                        class="nav-link fw-semibold {{ $activeInteractionSubtab === 'question' ? 'active' : '' }}"
+                                        id="subtab-question-head"
+                                        data-bs-toggle="tab"
+                                        data-bs-target="#subtab-question-pane"
+                                        type="button"
+                                        role="tab"
+                                    >
+                                        <i class="bi bi-question-circle me-1 text-warning"></i>Câu hỏi cho giảng viên
+                                        <span class="badge bg-warning text-dark ms-1">{{ $questionInteractions->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button
+                                        class="nav-link fw-semibold {{ $activeInteractionSubtab === 'discussion' ? 'active' : '' }}"
+                                        id="subtab-discussion-head"
+                                        data-bs-toggle="tab"
+                                        data-bs-target="#subtab-discussion-pane"
+                                        type="button"
+                                        role="tab"
+                                    >
+                                        <i class="bi bi-chat-left-text me-1 text-primary"></i>Bình luận & Thảo luận
+                                        <span class="badge bg-primary ms-1">{{ $discussionInteractions->count() }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="studentInteractionSubTabsContent">
+                                <!-- TAB CON 1: CÂU HỎI CHO GIẢNG VIÊN -->
+                                <div class="tab-pane fade {{ $activeInteractionSubtab === 'question' ? 'show active' : '' }}" id="subtab-question-pane" role="tabpanel">
+                                    <form method="POST" action="{{ route('interactions.store', [$course, $currentLesson]) }}" class="mb-4 p-3 bg-light rounded border">
+                                        @csrf
+                                        <input type="hidden" name="type" value="question">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                            <span class="small fw-semibold text-dark">
+                                                <i class="bi bi-mortarboard text-primary me-1"></i>Đặt câu hỏi trực tiếp tới giảng viên (sẽ gửi thông báo ngay)
+                                            </span>
+                                            @if($hasVideo)
+                                                <div class="d-flex flex-wrap align-items-center gap-1">
+                                                    <div class="input-group input-group-sm" style="width: 195px;">
+                                                        <span class="input-group-text" title="Mốc thời gian video bạn thắc mắc"><i class="bi bi-stopwatch"></i></span>
+                                                        <input type="text" name="video_timestamp_input" class="form-control font-monospace interaction-video-ts-text" placeholder="mm:ss (VD 01:20)">
+                                                        <button type="button" class="btn btn-outline-primary attach-video-ts-btn" title="Lấy mốc video đang xem">Lấy mốc</button>
+                                                    </div>
+                                                    <input type="hidden" name="video_timestamp_seconds" class="interaction-video-ts-input" value="">
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <textarea name="content" rows="3" class="form-control mb-2" placeholder="Nhập câu hỏi bạn cần giảng viên giải đáp..." required></textarea>
+                                        <div class="d-flex justify-content-end">
+                                            <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold">
+                                                <i class="bi bi-send me-1"></i>Gửi câu hỏi
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <div class="d-flex flex-column gap-3">
+                                        @forelse($questionInteractions as $item)
+                                            @include('student._interaction-thread', ['item' => $item, 'course' => $course, 'currentLesson' => $currentLesson, 'user' => $user])
+                                        @empty
+                                            <x-empty-state
+                                                icon="question-circle"
+                                                title="Chưa có câu hỏi nào cho giảng viên"
+                                                message="Nếu có chỗ nào chưa hiểu trong bài giảng, hãy đặt câu hỏi ở khung trên để giảng viên giải đáp nhé."
+                                            />
+                                        @endforelse
+                                    </div>
+                                </div>
+
+                                <!-- TAB CON 2: BÌNH LUẬN & THẢO LUẬN -->
+                                <div class="tab-pane fade {{ $activeInteractionSubtab === 'discussion' ? 'show active' : '' }}" id="subtab-discussion-pane" role="tabpanel">
+                                    <form method="POST" action="{{ route('interactions.store', [$course, $currentLesson]) }}" class="mb-4 p-3 bg-light rounded border">
+                                        @csrf
+                                        <input type="hidden" name="type" value="discussion">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                            <span class="small fw-semibold text-dark">
+                                                <i class="bi bi-people text-primary me-1"></i>Chia sẻ bình luận, ghi chú hoặc thảo luận cùng các bạn trong lớp
+                                            </span>
+                                            @if($hasVideo)
+                                                <div class="d-flex flex-wrap align-items-center gap-1">
+                                                    <div class="input-group input-group-sm" style="width: 195px;">
+                                                        <span class="input-group-text" title="Mốc thời gian video bạn thắc mắc"><i class="bi bi-stopwatch"></i></span>
+                                                        <input type="text" name="video_timestamp_input" class="form-control font-monospace interaction-video-ts-text" placeholder="mm:ss (VD 01:20)">
+                                                        <button type="button" class="btn btn-outline-primary attach-video-ts-btn" title="Lấy mốc video đang xem">Lấy mốc</button>
+                                                    </div>
+                                                    <input type="hidden" name="video_timestamp_seconds" class="interaction-video-ts-input" value="">
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <textarea name="content" rows="3" class="form-control mb-2" placeholder="Viết bình luận hoặc chủ đề thảo luận cùng lớp..." required></textarea>
+                                        <div class="d-flex justify-content-end">
+                                            <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold">
+                                                <i class="bi bi-chat-dots me-1"></i>Đăng bình luận / thảo luận
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <div class="d-flex flex-column gap-3">
+                                        @forelse($discussionInteractions as $item)
+                                            @include('student._interaction-thread', ['item' => $item, 'course' => $course, 'currentLesson' => $currentLesson, 'user' => $user])
+                                        @empty
+                                            <x-empty-state
+                                                icon="chat-left-dots"
+                                                title="Chưa có bình luận hay thảo luận nào"
+                                                message="Hãy là người đầu tiên chia sẻ cảm nhận, mẹo làm bài hoặc thảo luận cùng các bạn học."
+                                            />
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ĐIỀU HƯỚNG BÀI TRƯỚC / TIẾP THEO -->
@@ -432,6 +621,7 @@
                                             $isCompleted = in_array($les->id, $completedLessonIds);
                                             $isActive = $currentLesson?->id === $les->id;
                                             $hasLesVideo = $les->documents->contains(fn ($d) => $d->isVideo());
+                                            $lesViCount = $les->documents->sum(fn ($d) => $d->videoInteractions->count());
                                             $lesPct = $les->progressPercentageFor($user);
                                         @endphp
                                         <a
@@ -451,6 +641,11 @@
                                                 <span class="text-truncate">{{ $chIndex + 1 }}.{{ $lesIndex + 1 }} {{ $les->title }}</span>
                                             </div>
                                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                                @if($lesViCount > 0)
+                                                    <span class="badge bg-info-subtle text-info-emphasis border border-info" style="font-size: 0.7rem;" title="{{ $lesViCount }} câu hỏi tương tác trên video">
+                                                        <i class="bi bi-patch-question"></i> {{ $lesViCount }}
+                                                    </span>
+                                                @endif
                                                 @if($isCompleted || $lesPct >= 100)
                                                     <span class="badge bg-success-subtle text-success border border-success" style="font-size: 0.7rem;">100%</span>
                                                 @elseif($lesPct > 0)
@@ -486,6 +681,7 @@
                             $isCompleted = in_array($les->id, $completedLessonIds);
                             $isActive = $currentLesson?->id === $les->id;
                             $hasLesVideo = $les->documents->contains(fn ($d) => $d->isVideo());
+                            $lesViCount = $les->documents->sum(fn ($d) => $d->videoInteractions->count());
                             $lesPct = $les->progressPercentageFor($user);
                         @endphp
                         <a href="{{ route('student.courses.learn', [$course, $les->id]) }}" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between p-2 {{ $isActive ? 'active' : '' }}">
@@ -494,6 +690,11 @@
                                 {{ $chIndex + 1 }}.{{ $lesIndex + 1 }} {{ $les->title }}
                             </span>
                             <div class="d-flex align-items-center gap-1">
+                                @if($lesViCount > 0)
+                                    <span class="badge bg-info text-dark small" title="{{ $lesViCount }} câu hỏi tương tác trên video">
+                                        <i class="bi bi-patch-question"></i> {{ $lesViCount }}
+                                    </span>
+                                @endif
                                 @if($isCompleted || $lesPct >= 100)
                                     <span class="badge bg-success small">100%</span>
                                 @elseif($lesPct > 0)
@@ -795,6 +996,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 maxAllowedTime = current;
             }
             updateUi(current, duration);
+            if (typeof window.__checkVideoInteractions === 'function') {
+                window.__checkVideoInteractions(current, duration);
+            }
         }
 
         // 3. XEM GẦN HẾT VIDEO (còn <= 2s): Tự động đánh dấu hoàn thành
@@ -811,7 +1015,11 @@ document.addEventListener('DOMContentLoaded', function () {
         player = new YT.Player('lessonYouTubePlayer', {
             events: {
                 onReady: function (event) {
+                    window.__learnMateYouTubePlayer = player;
                     const duration = event.target.getDuration() || 0;
+                    if (typeof window.__renderVideoMarkers === 'function') {
+                        window.__renderVideoMarkers(duration);
+                    }
                     if (initialPosition > 0 && duration > initialPosition) {
                         event.target.seekTo(initialPosition, true);
                     }
@@ -869,4 +1077,510 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 @endif
+
+@if(($videoInteractions ?? collect())->isNotEmpty())
+<!-- MODAL CÂU HỎI TƯƠNG TÁC TRÊN VIDEO -->
+<div class="modal fade" id="videoInteractionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-primary text-white py-3">
+                <div>
+                    <span class="badge bg-white text-primary fw-bold me-2" id="viModalTimestamp">00:00</span>
+                    <span class="badge bg-warning text-dark" id="viModalType">Trắc nghiệm</span>
+                </div>
+                <h5 class="modal-title h6 fw-bold mb-0 ms-auto" id="viModalRequiredBadge">Câu hỏi tương tác</h5>
+            </div>
+            <div class="modal-body p-4">
+                <h3 class="h5 fw-bold text-dark mb-3" id="viModalQuestion"></h3>
+                <div id="viModalOptions" class="d-flex flex-column gap-2 mb-3"></div>
+                <div id="viModalFeedback" class="alert d-none mb-0"></div>
+            </div>
+            <div class="modal-footer bg-light d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="viSkipBtn">Bỏ qua & tiếp tục xem</button>
+                <div class="ms-auto d-flex gap-2">
+                    <button type="button" class="btn btn-outline-warning btn-sm d-none" id="viRetryBtn">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Thử lại
+                    </button>
+                    <button type="button" class="btn btn-primary fw-semibold px-4" id="viSubmitBtn">
+                        <i class="bi bi-check2-circle me-1"></i>Kiểm tra đáp án
+                    </button>
+                    <button type="button" class="btn btn-success fw-semibold px-4 d-none" id="viContinueBtn">
+                        <i class="bi bi-play-fill me-1"></i>Tiếp tục xem video
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@php
+    $videoInteractionsPayload = ($videoInteractions ?? collect())->map(function ($vi) use ($videoResponsesByInteraction) {
+        $resp = ($videoResponsesByInteraction ?? collect())->get($vi->id);
+        return [
+            'id' => $vi->id,
+            'timestamp_seconds' => (int) $vi->timestamp_seconds,
+            'formatted_timestamp' => $vi->formattedTimestamp(),
+            'question_type' => $vi->question_type,
+            'type_label' => $vi->typeLabel(),
+            'question' => $vi->question,
+            'options' => $vi->options,
+            'is_required' => (bool) $vi->is_required,
+            'answer_url' => route('student.video-interactions.answer', $vi),
+            'answered' => (bool) $resp,
+            'is_correct' => $resp ? (bool) $resp->is_correct : null,
+            'selected_answer' => $resp?->selected_answer,
+        ];
+    })->values();
+@endphp
+
+<script>
+// HỆ THỐNG TƯƠNG TÁC TRÊN VIDEO (TỰ ĐỘNG DỪNG VIDEO ĐỂ TRẢ LỜI TRẮC NGHIỆM / ĐÚNG SAI / TRẢ LỜI NGẮN)
+document.addEventListener('DOMContentLoaded', function () {
+    const interactions = @json($videoInteractionsPayload);
+    if (!interactions.length) return;
+
+    const csrfToken = '{{ csrf_token() }}';
+    const html5Video = document.getElementById('lessonVideoPlayer');
+    const modalEl = document.getElementById('videoInteractionModal');
+
+    // Mở/đóng modal an toàn kể cả khi Vite không gắn window.bootstrap
+    let viBackdropEl = null;
+    function showViModal() {
+        if (window.bootstrap && window.bootstrap.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: 'static', keyboard: false }).show();
+            return;
+        }
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+        modalEl.removeAttribute('aria-hidden');
+        document.body.classList.add('modal-open');
+        if (!viBackdropEl) {
+            viBackdropEl = document.createElement('div');
+            viBackdropEl.className = 'modal-backdrop fade show';
+            document.body.appendChild(viBackdropEl);
+        }
+    }
+
+    function hideViModal() {
+        if (window.bootstrap && window.bootstrap.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            return;
+        }
+        modalEl.classList.remove('show');
+        modalEl.style.display = 'none';
+        modalEl.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        if (viBackdropEl) {
+            viBackdropEl.remove();
+            viBackdropEl = null;
+        }
+    }
+
+    const tsBadge = document.getElementById('viModalTimestamp');
+    const typeBadge = document.getElementById('viModalType');
+    const reqBadge = document.getElementById('viModalRequiredBadge');
+    const questionEl = document.getElementById('viModalQuestion');
+    const optionsEl = document.getElementById('viModalOptions');
+    const feedbackEl = document.getElementById('viModalFeedback');
+    const submitBtn = document.getElementById('viSubmitBtn');
+    const retryBtn = document.getElementById('viRetryBtn');
+    const continueBtn = document.getElementById('viContinueBtn');
+    const skipBtn = document.getElementById('viSkipBtn');
+    const summaryEl = document.getElementById('video_quiz_summary');
+
+    const triggeredInSession = new Set(interactions.filter(i => i.answered).map(i => i.id));
+    let activeInteraction = null;
+    let pendingQueue = [];
+    let queueTotal = 1;
+    let queueIndex = 0;
+    let isModalOpen = false;
+    let renderedDuration = 0;
+
+    function pauseVideo() {
+        if (html5Video && !html5Video.paused) {
+            html5Video.pause();
+        }
+        if (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.pauseVideo === 'function') {
+            try { window.__learnMateYouTubePlayer.pauseVideo(); } catch (e) {}
+        }
+    }
+
+    function resumeVideo() {
+        if (html5Video) {
+            html5Video.play().catch(() => {});
+        }
+        if (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.playVideo === 'function') {
+            try { window.__learnMateYouTubePlayer.playVideo(); } catch (e) {}
+        }
+    }
+
+    function getCurrentVideoTime() {
+        if (html5Video) return html5Video.currentTime || 0;
+        if (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.getCurrentTime === 'function') {
+            try { return window.__learnMateYouTubePlayer.getCurrentTime() || 0; } catch (e) { return 0; }
+        }
+        return 0;
+    }
+
+    function getVideoDuration() {
+        if (html5Video && html5Video.duration > 0) return html5Video.duration;
+        if (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.getDuration === 'function') {
+            try { return window.__learnMateYouTubePlayer.getDuration() || 0; } catch (e) { return 0; }
+        }
+        return 0;
+    }
+
+    // Vẽ các chấm đánh dấu vị trí có câu hỏi ngay trên thanh tiến trình video
+    function renderTimelineMarkers(force = false) {
+        const duration = getVideoDuration();
+        if (!duration || duration <= 0) return;
+        if (!force && Math.abs(duration - renderedDuration) < 1) return;
+        renderedDuration = duration;
+
+        const container = document.getElementById('html5_timeline_markers') || document.getElementById('youtube_timeline_markers');
+        if (!container) return;
+        container.innerHTML = '';
+
+        // Nhóm các câu hỏi theo mốc thời gian
+        const grouped = {};
+        interactions.forEach(item => {
+            if (!grouped[item.timestamp_seconds]) grouped[item.timestamp_seconds] = [];
+            grouped[item.timestamp_seconds].push(item);
+        });
+
+        Object.entries(grouped).forEach(([secStr, group]) => {
+            const sec = Number(secStr);
+            const pct = Math.min(99, Math.max(1, (sec / duration) * 100));
+            const allAnswered = group.every(i => i.answered);
+            const allCorrect = allAnswered && group.every(i => i.is_correct === true);
+            const anyWrong = group.some(i => i.answered && i.is_correct === false);
+
+            let bgClass = 'bg-warning';
+            if (allCorrect) bgClass = 'bg-success';
+            else if (anyWrong) bgClass = 'bg-danger';
+
+            const dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = `position-absolute top-50 translate-middle border border-2 border-white rounded-circle shadow-sm p-0 ${bgClass}`;
+            dot.style.left = pct + '%';
+            dot.style.width = '14px';
+            dot.style.height = '14px';
+            dot.style.pointerEvents = 'auto';
+            dot.style.cursor = 'pointer';
+            dot.title = group.length > 1
+                ? `Mốc ${group[0].formatted_timestamp}: ${group.length} câu hỏi tương tác`
+                : `Mốc ${group[0].formatted_timestamp}: ${group[0].question}`;
+            dot.addEventListener('click', () => startCheckpointQueue(group));
+            container.appendChild(dot);
+        });
+    }
+
+    function startCheckpointQueue(items) {
+        if (!items || !items.length) return;
+        pendingQueue = items.slice();
+        queueTotal = pendingQueue.length;
+        queueIndex = 0;
+        renderInteractionModal(pendingQueue[0]);
+    }
+
+    function renderInteractionModal(item) {
+        activeInteraction = item;
+        isModalOpen = true;
+        pauseVideo();
+
+        const stepText = queueTotal > 1 ? ` · Câu ${queueIndex + 1}/${queueTotal}` : '';
+        tsBadge.textContent = 'Mốc ' + item.formatted_timestamp + stepText;
+        typeBadge.textContent = item.type_label;
+        reqBadge.textContent = item.is_required ? 'Bắt buộc trả lời' : 'Câu hỏi tương tác';
+        questionEl.textContent = item.question;
+
+        feedbackEl.className = 'alert d-none mb-0';
+        feedbackEl.innerHTML = '';
+        submitBtn.classList.remove('d-none');
+        submitBtn.disabled = false;
+        retryBtn.classList.add('d-none');
+        continueBtn.classList.add('d-none');
+        continueBtn.innerHTML = (queueIndex < queueTotal - 1)
+            ? '<i class="bi bi-arrow-right me-1"></i>Câu hỏi tiếp theo'
+            : '<i class="bi bi-play-fill me-1"></i>Tiếp tục xem video';
+        skipBtn.classList.toggle('d-none', item.is_required);
+
+        optionsEl.innerHTML = '';
+        if (item.question_type === 'multiple_choice' && item.options) {
+            const hint = document.createElement('div');
+            hint.className = 'small text-muted mb-1';
+            hint.innerHTML = '<i class="bi bi-info-circle me-1"></i>Chọn <strong>1 đáp án đúng duy nhất</strong>:';
+            optionsEl.appendChild(hint);
+
+            Object.entries(item.options).forEach(([key, label]) => {
+                const wrap = document.createElement('label');
+                wrap.className = 'border rounded-3 p-3 d-flex align-items-center gap-3 bg-light';
+                wrap.style.cursor = 'pointer';
+                wrap.innerHTML = `
+                    <input class="form-check-input mt-0" type="radio" name="vi_answer" value="${key}" ${item.selected_answer === key ? 'checked' : ''}>
+                    <span><strong class="me-1">${key}.</strong> ${escapeHtml(label)}</span>
+                `;
+                optionsEl.appendChild(wrap);
+            });
+        } else if (item.question_type === 'true_false') {
+            [['true', 'Đúng', 'text-success'], ['false', 'Sai', 'text-danger']].forEach(([val, label, cls]) => {
+                const wrap = document.createElement('label');
+                wrap.className = 'border rounded-3 p-3 d-flex align-items-center gap-3 bg-light';
+                wrap.style.cursor = 'pointer';
+                wrap.innerHTML = `
+                    <input class="form-check-input mt-0" type="radio" name="vi_answer" value="${val}" ${item.selected_answer === val ? 'checked' : ''}>
+                    <span class="fw-semibold ${cls}">${label}</span>
+                `;
+                optionsEl.appendChild(wrap);
+            });
+        } else {
+            optionsEl.innerHTML = `
+                <input type="text" id="viShortAnswerInput" class="form-control form-control-lg" placeholder="Nhập câu trả lời của bạn..." value="${escapeHtml(item.selected_answer || '')}">
+            `;
+        }
+
+        showViModal();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
+    function getSelectedAnswer() {
+        if (!activeInteraction) return '';
+        if (activeInteraction.question_type === 'short_answer') {
+            const input = document.getElementById('viShortAnswerInput');
+            return input ? input.value.trim() : '';
+        }
+        const checked = optionsEl.querySelector('input[name="vi_answer"]:checked');
+        return checked ? checked.value : '';
+    }
+
+    function updateCheckpointPill(interactionId, isCorrect) {
+        const pill = document.querySelector(`.video-checkpoint-pill[data-interaction-id="${interactionId}"]`);
+        if (!pill) return;
+        pill.classList.remove('btn-outline-warning', 'text-dark', 'btn-success', 'btn-danger');
+        pill.classList.add(isCorrect ? 'btn-success' : 'btn-danger');
+        const icon = pill.querySelector('i');
+        if (icon) {
+            icon.className = 'bi ' + (isCorrect ? 'bi-check-circle-fill' : 'bi-x-circle-fill') + ' me-1';
+        }
+        renderTimelineMarkers(true);
+    }
+
+    submitBtn.addEventListener('click', function () {
+        if (!activeInteraction) return;
+        const answer = getSelectedAnswer();
+        if (!answer) {
+            feedbackEl.className = 'alert alert-warning mb-0';
+            feedbackEl.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Vui lòng chọn hoặc nhập câu trả lời trước khi kiểm tra.';
+            return;
+        }
+
+        submitBtn.disabled = true;
+        fetch(activeInteraction.answer_url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ answer: answer })
+        })
+        .then(res => res.json())
+        .then(data => {
+            activeInteraction.answered = true;
+            activeInteraction.is_correct = data.is_correct;
+            activeInteraction.selected_answer = answer;
+            triggeredInSession.add(activeInteraction.id);
+
+            updateCheckpointPill(activeInteraction.id, data.is_correct);
+            if (summaryEl && data.stats) {
+                summaryEl.textContent = `Đã trả lời: ${data.stats.answered}/${data.stats.total} · Đúng: ${data.stats.correct}`;
+            }
+            const scoreBadge = document.getElementById('video_quiz_score_badge');
+            if (scoreBadge && data.stats && data.stats.score_10 !== null && data.stats.score_10 !== undefined) {
+                const s10 = Number(data.stats.score_10);
+                scoreBadge.textContent = `Điểm tương tác: ${s10.toFixed(1)}/10`;
+                scoreBadge.className = 'badge font-mono ' + (s10 >= 8 ? 'bg-success' : (s10 >= 5 ? 'bg-warning text-dark' : 'bg-danger'));
+            }
+
+            if (data.is_correct) {
+                feedbackEl.className = 'alert alert-success mb-0';
+                feedbackEl.innerHTML = `
+                    <div class="fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Chính xác!</div>
+                    ${data.explanation ? `<div class="small mt-1">${escapeHtml(data.explanation)}</div>` : ''}
+                `;
+                submitBtn.classList.add('d-none');
+                retryBtn.classList.add('d-none');
+                continueBtn.classList.remove('d-none');
+            } else {
+                feedbackEl.className = 'alert alert-danger mb-0';
+                feedbackEl.innerHTML = `
+                    <div class="fw-bold"><i class="bi bi-x-circle-fill me-1"></i>Chưa chính xác!</div>
+                    <div class="small mt-1">Đáp án đúng: <strong>${escapeHtml(data.correct_answer_label)}</strong></div>
+                    ${data.explanation ? `<div class="small mt-1">${escapeHtml(data.explanation)}</div>` : ''}
+                `;
+                submitBtn.classList.add('d-none');
+                retryBtn.classList.remove('d-none');
+                continueBtn.classList.remove('d-none');
+            }
+        })
+        .catch(() => {
+            submitBtn.disabled = false;
+            feedbackEl.className = 'alert alert-danger mb-0';
+            feedbackEl.textContent = 'Không thể gửi câu trả lời. Vui lòng thử lại.';
+        });
+    });
+
+    retryBtn.addEventListener('click', function () {
+        if (!activeInteraction) return;
+        feedbackEl.className = 'alert d-none mb-0';
+        submitBtn.classList.remove('d-none');
+        submitBtn.disabled = false;
+        retryBtn.classList.add('d-none');
+        continueBtn.classList.add('d-none');
+    });
+
+    function advanceOrClose() {
+        if (activeInteraction) triggeredInSession.add(activeInteraction.id);
+        if (queueIndex < queueTotal - 1) {
+            queueIndex++;
+            renderInteractionModal(pendingQueue[queueIndex]);
+            return;
+        }
+        isModalOpen = false;
+        pendingQueue = [];
+        hideViModal();
+        resumeVideo();
+    }
+
+    continueBtn.addEventListener('click', advanceOrClose);
+    skipBtn.addEventListener('click', advanceOrClose);
+
+    // Click vào từng điểm checkpoint để mở lại câu hỏi
+    document.querySelectorAll('.video-checkpoint-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            const id = parseInt(pill.dataset.interactionId || '0', 10);
+            const item = interactions.find(i => i.id === id);
+            if (item) startCheckpointQueue([item]);
+        });
+    });
+
+    // Theo dõi mốc thời gian video để tự động bật câu hỏi tương tác (hỗ trợ nhiều câu liên tiếp tại cùng mốc)
+    let lastCheckedSec = -1;
+    function checkVideoCheckpoints(overrideTime = null, overrideDuration = null) {
+        if (overrideDuration && overrideDuration > 0 && Math.abs(overrideDuration - renderedDuration) >= 1) {
+            renderTimelineMarkers(true);
+        } else {
+            renderTimelineMarkers(false);
+        }
+        if (isModalOpen) return;
+
+        const rawTime = overrideTime !== null ? overrideTime : getCurrentVideoTime();
+        const currentSec = Math.floor(rawTime || 0);
+        const isPlaying = html5Video
+            ? (!html5Video.paused && !html5Video.ended)
+            : (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.getPlayerState === 'function'
+                ? window.__learnMateYouTubePlayer.getPlayerState() === 1
+                : false);
+
+        if (!isPlaying) return;
+
+        const dueList = interactions.filter(item => {
+            if (triggeredInSession.has(item.id)) return false;
+            const inWindow = currentSec >= item.timestamp_seconds && currentSec <= item.timestamp_seconds + 3;
+            const crossed = lastCheckedSec >= 0 && lastCheckedSec < item.timestamp_seconds && currentSec >= item.timestamp_seconds;
+            const missedRequired = item.is_required && !item.answered && currentSec > item.timestamp_seconds;
+            return inWindow || crossed || missedRequired;
+        });
+
+        lastCheckedSec = currentSec;
+
+        if (dueList.length > 0) {
+            // Nhóm các câu hỏi cùng mốc thời gian sớm nhất trước
+            const earliestTs = Math.min(...dueList.map(i => i.timestamp_seconds));
+            startCheckpointQueue(dueList.filter(i => i.timestamp_seconds === earliestTs));
+        }
+    }
+
+    window.__checkVideoInteractions = checkVideoCheckpoints;
+    window.__renderVideoMarkers = function () {
+        renderTimelineMarkers(true);
+    };
+
+    if (html5Video) {
+        html5Video.addEventListener('loadedmetadata', () => renderTimelineMarkers(true));
+        if (html5Video.readyState >= 1) renderTimelineMarkers(true);
+        html5Video.addEventListener('timeupdate', () => checkVideoCheckpoints(html5Video.currentTime, html5Video.duration));
+    } else {
+        setInterval(() => checkVideoCheckpoints(), 350);
+    }
+});
+</script>
+@endif
+
+<script>
+// Gắn mốc thời gian video hiện tại & nhảy thẳng tới mốc video khi bấm vào badge mốc trên câu hỏi
+document.addEventListener('DOMContentLoaded', function () {
+    function formatMMSS(secs) {
+        secs = Math.max(0, Math.floor(secs || 0));
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    document.querySelectorAll('.attach-video-ts-btn').forEach(function (attachBtn) {
+        attachBtn.addEventListener('click', function () {
+            const form = attachBtn.closest('form');
+            if (!form) return;
+            const tsInput = form.querySelector('.interaction-video-ts-input');
+            const tsText = form.querySelector('.interaction-video-ts-text');
+
+            const html5Video = document.getElementById('lessonVideoPlayer');
+            let secs = 0;
+            if (html5Video) {
+                secs = Math.floor(html5Video.currentTime || 0);
+            } else if (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.getCurrentTime === 'function') {
+                try { secs = Math.floor(window.__learnMateYouTubePlayer.getCurrentTime() || 0); } catch (e) {}
+            }
+            if (tsInput) tsInput.value = secs;
+            if (tsText) tsText.value = formatMMSS(secs);
+        });
+    });
+
+    // Bấm vào nút mốc thời gian trong câu hỏi/bình luận -> chuyển sang tab Video & tua tới đúng chỗ đó
+    document.querySelectorAll('.jump-to-video-ts-btn').forEach(function (jumpBtn) {
+        jumpBtn.addEventListener('click', function () {
+            const targetSecs = Math.max(0, parseInt(jumpBtn.dataset.seconds || '0', 10));
+            const videoTabBtn = document.getElementById('st-tab-video-head');
+            if (videoTabBtn) {
+                if (window.bootstrap && window.bootstrap.Tab) {
+                    window.bootstrap.Tab.getOrCreateInstance(videoTabBtn).show();
+                } else {
+                    videoTabBtn.click();
+                }
+            }
+
+            setTimeout(function () {
+                const html5Video = document.getElementById('lessonVideoPlayer');
+                const ytIframe = document.getElementById('lessonYouTubePlayer');
+                if (html5Video) {
+                    html5Video.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    html5Video.currentTime = targetSecs;
+                    html5Video.play().catch(() => {});
+                } else if (window.__learnMateYouTubePlayer && typeof window.__learnMateYouTubePlayer.seekTo === 'function') {
+                    if (ytIframe) ytIframe.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    try {
+                        window.__learnMateYouTubePlayer.seekTo(targetSecs, true);
+                        window.__learnMateYouTubePlayer.playVideo();
+                    } catch (e) {}
+                }
+            }, 150);
+        });
+    });
+});
+</script>
 @endsection

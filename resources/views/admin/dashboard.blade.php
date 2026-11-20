@@ -80,9 +80,24 @@
                 <div class="font-mono text-accent small">QUẢN LÝ NHANH</div>
                 <h2 class="h4 mt-3">Danh mục học liệu</h2>
                 <p class="lm-text-muted small">Quản lý tài khoản và môn học trước khi mở khóa học.</p>
-                <a href="{{ route('admin.users.create') }}" class="btn btn-primary w-100 mt-3">Tạo tài khoản mới</a>
-                <a href="{{ route('admin.subjects.create') }}" class="btn btn-outline-primary w-100 mt-2">Thêm môn học</a>
-                <a href="{{ route('admin.subjects.index') }}" class="btn btn-outline-primary w-100 mt-2">Danh sách môn học</a>
+                <a href="{{ route('admin.users.create') }}" class="btn btn-primary w-100 mt-3">
+                    <i class="bi bi-person-plus me-1"></i>Tạo tài khoản mới
+                </a>
+                <a href="{{ route('admin.documents.index') }}" class="btn btn-outline-primary w-100 mt-2 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-patch-check me-1"></i>Kiểm duyệt học liệu</span>
+                    @if(($pendingReviewCount ?? 0) > 0)
+                        <span class="badge bg-warning text-dark">{{ $pendingReviewCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('interactions.index') }}" class="btn btn-outline-primary w-100 mt-2 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-chat-dots me-1"></i>Hỏi đáp chờ trả lời</span>
+                    @if(($openQuestionsCount ?? 0) > 0)
+                        <span class="badge bg-danger">{{ $openQuestionsCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('admin.subjects.index') }}" class="btn btn-outline-secondary w-100 mt-2">
+                    <i class="bi bi-book me-1"></i>Danh sách môn học ({{ $subjectCount }})
+                </a>
             </x-card>
         </div>
     </div>

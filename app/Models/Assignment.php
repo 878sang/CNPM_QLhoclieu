@@ -8,11 +8,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Assignment extends Model
 {
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_PUBLISHED = 'published';
+
     protected $fillable = [
         'course_id', 'lesson_id', 'title', 'description',
         'type', 'question_types', 'question_count', 'time_limit_minutes', 'deadline',
         'answer_key', 'file_path', 'answer_file_path',
         'original_name', 'answer_original_name', 'status', 'show_answer_to_students',
+        'submission_mode',
+        'rejection_reason', 'reviewed_by', 'reviewed_at',
     ];
 
     protected $casts = [
@@ -21,6 +27,7 @@ class Assignment extends Model
         'deadline' => 'datetime',
         'graded_at' => 'datetime',
         'show_answer_to_students' => 'boolean',
+        'reviewed_at' => 'datetime',
     ];
 
     // ─── Relationships ───────────────────────────────────────────────
@@ -44,12 +51,52 @@ class Assignment extends Model
 
     public function isPublished(): bool
     {
-        return $this->status === 'published';
+        return $this->status === self::STATUS_PUBLISHED;
     }
 
     public function isDraft(): bool
     {
         return $this->status === 'draft';
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            'pending' => 'Chờ duyệt',
+            'published' => 'Đã duyệt',
+            'rejected' => 'Bị từ chối',
+            default => 'Bản nháp',
+        };
+    }
+
+    public function statusBadgeClass(): string
+    {
+        return match ($this->status) {
+            'pending' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
+            'published' => 'bg-success-subtle text-success border border-success-subtle',
+            'rejected' => 'bg-danger-subtle text-danger border border-danger-subtle',
+            default => 'bg-secondary-subtle text-secondary border border-secondary-subtle',
+        };
+    }
+
+    public function isFileSubmission(): bool
+    {
+        return ($this->submission_mode ?? 'answers') === 'file';
+    }
+
+    public function isAnswerSubmission(): bool
+    {
+        return ! $this->isFileSubmission();
+    }
+
+    public function submissionModeLabel(): string
+    {
+        return $this->isFileSubmission() ? 'Nộp file bài làm' : 'Chọn / nhập đáp án';
     }
 
     public function isMultipleChoice(): bool
@@ -121,6 +168,6 @@ class Assignment extends Model
 
     public function maxScore(): float
     {
-        return (float) ($this->answer_key ? count($this->answer_key) : $this->question_count);
+        return (float) ($this->answer_key ? count($this->answer_key) : ($this->question_count ?: 10.0));
     }
 }

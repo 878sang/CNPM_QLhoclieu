@@ -10,11 +10,11 @@
         </div>
         <div class="d-flex align-items-center gap-2">
             <h1 class="h4 fw-bold mb-0 text-dark">{{ $assignment->title }}</h1>
-            <span class="badge {{ $assignment->status === 'published' ? 'bg-success' : 'bg-warning text-dark' }}">
-                {{ $assignment->status === 'published' ? 'Đã xuất bản' : 'Bản nháp' }}
+            <span class="badge {{ $assignment->statusBadgeClass() }}">
+                {{ $assignment->statusLabel() }}
             </span>
-            <span class="badge bg-primary-subtle text-primary border">
-                {{ $assignment->typeLabel() }}
+            <span class="badge {{ $assignment->isFileSubmission() ? 'bg-warning-subtle text-warning-emphasis border' : 'bg-primary-subtle text-primary border' }}">
+                <i class="bi {{ $assignment->isFileSubmission() ? 'bi-file-earmark-arrow-up' : 'bi-ui-checks' }} me-1"></i>{{ $assignment->isFileSubmission() ? 'Nộp file bài làm' : $assignment->typeLabel() }}
             </span>
         </div>
     </div>
@@ -36,8 +36,13 @@
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-md-4">
         <div class="card border rounded-3 p-3 bg-white shadow-2xs">
-            <div class="text-muted small mb-1"><i class="bi bi-list-ol me-1 text-primary"></i>Tổng số câu hỏi</div>
-            <div class="h4 fw-bold mb-0 text-dark">{{ $assignment->question_count }} câu</div>
+            @if($assignment->isFileSubmission())
+                <div class="text-muted small mb-1"><i class="bi bi-file-earmark-arrow-up me-1 text-primary"></i>Hình thức nộp bài</div>
+                <div class="h5 fw-bold mb-0 text-dark">Nộp file bài làm</div>
+            @else
+                <div class="text-muted small mb-1"><i class="bi bi-list-ol me-1 text-primary"></i>Tổng số câu hỏi</div>
+                <div class="h4 fw-bold mb-0 text-dark">{{ $assignment->question_count }} câu</div>
+            @endif
         </div>
     </div>
     <div class="col-sm-6 col-md-4">
@@ -63,11 +68,13 @@
             <i class="bi bi-file-earmark-text me-1 text-primary"></i>Đề bài &amp; Tệp đính kèm
         </button>
     </li>
+    @if(! $assignment->isFileSubmission())
     <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="tab-answers-head" data-bs-toggle="tab" data-bs-target="#tab-answers-pane" type="button" role="tab">
             <i class="bi bi-check2-square me-1 text-success"></i>Bảng đáp án ({{ !empty($assignment->answer_key) ? count($assignment->answer_key) : 0 }} câu)
         </button>
     </li>
+    @endif
     <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="tab-subs-head" data-bs-toggle="tab" data-bs-target="#tab-subs-pane" type="button" role="tab">
             <i class="bi bi-people me-1 text-info"></i>Bài nộp gần đây ({{ $submissions->count() }})
@@ -121,6 +128,7 @@
     </div>
 
     {{-- TAB 2: ĐÁP ÁN --}}
+    @if(! $assignment->isFileSubmission())
     <div class="tab-pane fade" id="tab-answers-pane" role="tabpanel">
         <div class="card border rounded-3 p-4 bg-white shadow-2xs mb-4">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
@@ -158,6 +166,7 @@
             @endif
         </div>
     </div>
+    @endif
 
     {{-- TAB 3: BÀI NỘP GẦN ĐÂY --}}
     <div class="tab-pane fade" id="tab-subs-pane" role="tabpanel">

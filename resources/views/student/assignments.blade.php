@@ -38,8 +38,8 @@
             <div class="card-body p-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div class="flex-grow-1" style="max-width: 680px;">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold">
-                            {{ $assignment->typeLabel() }}
+                        <span class="badge {{ $assignment->isFileSubmission() ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' }} fw-semibold">
+                            <i class="bi {{ $assignment->isFileSubmission() ? 'bi-file-earmark-arrow-up' : 'bi-ui-checks' }} me-1"></i>{{ $assignment->isFileSubmission() ? 'Nộp file bài làm' : $assignment->typeLabel() }}
                         </span>
                         @if($assignment->lesson)
                             <span class="badge bg-secondary-subtle text-secondary border">
@@ -68,7 +68,11 @@
                     @endif
 
                     <div class="d-flex flex-wrap align-items-center gap-3 small text-muted">
-                        <span><i class="bi bi-list-ol text-primary me-1"></i><strong>{{ $assignment->question_count }}</strong> câu hỏi</span>
+                        @if($assignment->isFileSubmission())
+                            <span><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i><strong>Nộp file bài làm</strong></span>
+                        @else
+                            <span><i class="bi bi-list-ol text-primary me-1"></i><strong>{{ $assignment->question_count }}</strong> câu hỏi</span>
+                        @endif
                         <span>
                             <i class="bi bi-calendar-event {{ $isPastDeadline ? 'text-danger' : 'text-secondary' }} me-1"></i>
                             Hạn nộp: <strong class="{{ $isPastDeadline ? 'text-danger' : '' }}">{{ $assignment->deadline ? $assignment->deadline->format('H:i - d/m/Y') : 'Không giới hạn' }}</strong>

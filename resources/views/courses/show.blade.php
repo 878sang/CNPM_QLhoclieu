@@ -54,7 +54,7 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
             </li>
             <li class="nav-item">
                 <a class="nav-link py-3 px-3 fw-semibold text-uppercase {{ $activeTab === 'students' ? 'active' : '' }}" href="{{ route('courses.show', ['course' => $course, 'tab' => 'students']) }}">
-                    <i class="bi bi-people me-1"></i>HỌC VIÊN ({{ $course->enrollments->count() }})
+                    <i class="bi bi-people me-1"></i>HỌC VIÊN ({{ $course->enrollments_count ?? $course->enrollments->count() }})
                 </a>
             </li>
             <li class="nav-item">
@@ -64,12 +64,17 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
             </li>
             <li class="nav-item">
                 <a class="nav-link py-3 px-3 fw-semibold text-uppercase {{ $activeTab === 'documents' ? 'active' : '' }}" href="{{ route('courses.show', ['course' => $course, 'tab' => 'documents']) }}">
-                    <i class="bi bi-folder2-open me-1"></i>TÀI LIỆU ({{ $course->documents->count() }})
+                    <i class="bi bi-folder2-open me-1"></i>TÀI LIỆU ({{ $course->documents_count ?? $course->documents->count() }})
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link py-3 px-3 fw-semibold text-uppercase" href="{{ route('courses.assignments.index', $course) }}">
-                    <i class="bi bi-journals me-1"></i>BÀI TẬP ({{ $course->assignments->count() }})
+                    <i class="bi bi-journals me-1"></i>BÀI TẬP ({{ $course->assignments_count ?? $course->assignments->count() }})
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link py-3 px-3 fw-semibold text-uppercase" href="{{ route('interactions.index', ['course_id' => $course->id]) }}">
+                    <i class="bi bi-chat-dots me-1"></i>HỎI ĐÁP
                 </a>
             </li>
         </ul>
@@ -131,6 +136,7 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                         @forelse($chapter->lessons as $lIndex => $lesson)
                         @php
                         $hasVideo = $lesson->documents->contains(fn ($d) => $d->isVideo());
+                        $videoQuestionCount = $lesson->documents->sum(fn ($d) => $d->videoInteractions->count());
                         $isLessonActive = $currentLesson && $currentLesson->id === $lesson->id;
                         @endphp
                         <a href="{{ route('courses.show', ['course' => $course, 'lesson_id' => $lesson->id, 'tab' => 'content']) }}"
@@ -140,6 +146,11 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                 <span class="small text-truncate" title="{{ $lesson->title }}">{{ $lesson->title }}</span>
                             </div>
                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                @if($videoQuestionCount > 0)
+                                <span class="badge bg-info-subtle text-info-emphasis border border-info small fw-normal" title="{{ $videoQuestionCount }} câu hỏi tương tác trên video">
+                                    <i class="bi bi-patch-question me-1"></i>{{ $videoQuestionCount }}
+                                </span>
+                                @endif
                                 @if($lesson->isDraft())
                                 <span class="badge bg-warning-subtle text-warning border small fw-normal">Nháp</span>
                                 @elseif($lesson->isPending())
@@ -384,12 +395,16 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                         <span class="badge bg-danger-subtle text-danger border border-danger mt-1"><i class="bi bi-x-circle me-1"></i>Bị từ chối</span>
                                         @endif
                                     </div>
-                                    <div class="d-flex align-items-center gap-1">
+                                    <div class="d-flex flex-wrap align-items-center gap-1">
                                         @if($videoDoc->isPending())
                                         <button type="button" class="btn btn-sm btn-warning py-1 px-2" disabled title="Video đã được gửi và đang chờ Admin duyệt">
                                             <i class="bi bi-hourglass-split me-1"></i>Đang chờ duyệt
                                         </button>
                                         @endif
+                                        <a href="{{ route('courses.video-interactions.manage', [$course, $videoDoc]) }}" class="btn btn-sm btn-primary py-1 px-2" title="Thêm câu hỏi trắc nghiệm / đúng sai trên video">
+                                            <i class="bi bi-patch-question me-1"></i>Tương tác video
+                                            <span class="badge bg-white text-primary ms-1">{{ $videoDoc->videoInteractions->count() }}</span>
+                                        </a>
                                         <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" data-bs-toggle="modal" data-bs-target="#editDocumentModal{{ $videoDoc->id }}" title="Đổi hoặc cập nhật video">
                                             <i class="bi bi-pencil me-1"></i>Đổi video
                                         </button>
@@ -627,9 +642,9 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                         <dt class="col-5 text-muted">Số bài học</dt>
                         <dd class="col-7">{{ $allLessons->count() }} bài học</dd>
                         <dt class="col-5 text-muted">Tổng học liệu</dt>
-                        <dd class="col-7">{{ $course->documents()->count() }} tài liệu</dd>
+                        <dd class="col-7">{{ $course->documents_count ?? $course->documents->count() }} tài liệu</dd>
                         <dt class="col-5 text-muted">Học viên</dt>
-                        <dd class="col-7">{{ $course->enrollments->count() }} học viên</dd>
+                        <dd class="col-7">{{ $course->enrollments_count ?? $course->enrollments->count() }} học viên</dd>
                     </dl>
                 </div>
             </div>
@@ -701,14 +716,15 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
             <span class="badge bg-primary fs-6">{{ $course->enrollments->count() }} học viên</span>
         </div>
 
-        <!-- BẢNG THỐNG KÊ TIẾN ĐỘ ĐỒNG BỘ CHI TIẾT -->
+        <!-- BẢNG THỐNG KÊ TIẾN ĐỘ ĐỒNG BỘ CHI TIẾT (TÁCH RIÊNG TIẾN ĐỘ XEM & ĐIỂM TƯƠNG TÁC VIDEO) -->
         <div class="table-responsive border rounded-3 overflow-hidden shadow-2xs mb-4">
             <table class="table align-middle table-hover mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th style="min-width: 220px;">Học viên</th>
+                        <th style="min-width: 210px;">Học viên</th>
                         <th>Trạng thái</th>
-                        <th style="min-width: 240px;">Tiến độ khóa học</th>
+                        <th style="min-width: 210px;">Tiến độ xem (%)</th>
+                        <th class="text-center" style="min-width: 165px;">Điểm tương tác video</th>
                         <th class="text-center">Số bài đã học</th>
                         <th class="text-end">Chi tiết tiến độ</th>
                     </tr>
@@ -720,6 +736,7 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                     $stPercent = $stUser ? $course->progressPercentageFor($stUser) : 0;
                     $stProgresses = $stUser ? $course->progresses->where('user_id', $stUser->id) : collect();
                     $stCompleted = $stProgresses->where('is_completed', true)->count();
+                    $stVideoStats = $stUser ? $course->videoInteractionStatsFor($stUser) : ['total' => 0, 'answered' => 0, 'correct' => 0, 'score_10' => null, 'accuracy_percent' => null];
                     $totalL = $allLessons->count();
                     @endphp
                     <tr>
@@ -734,12 +751,30 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                         </td>
                         <td>
                             <div class="d-flex justify-content-between align-items-center small mb-1">
-                                <span class="text-muted fw-semibold">Tổng quan</span>
-                                <span class="fw-bold text-primary">{{ $stPercent }}%</span>
+                                <span class="text-muted fw-semibold">Tiến độ xem</span>
+                                <span class="fw-bold text-primary font-mono">{{ $stPercent }}%</span>
                             </div>
                             <div class="progress" style="height: 8px;">
                                 <div class="progress-bar bg-success" role="progressbar" style="width: {{ $stPercent }}%"></div>
                             </div>
+                        </td>
+                        <td class="text-center">
+                            @if($stVideoStats['total'] > 0)
+                                @php
+                                    $vScore = $stVideoStats['score_10'];
+                                    $vTone = $stVideoStats['answered'] === 0
+                                        ? 'bg-secondary-subtle text-secondary border'
+                                        : ($vScore >= 8 ? 'bg-success-subtle text-success border border-success' : ($vScore >= 5 ? 'bg-warning-subtle text-warning-emphasis border border-warning' : 'bg-danger-subtle text-danger border border-danger'));
+                                @endphp
+                                <span class="badge {{ $vTone }} font-mono">
+                                    {{ $stVideoStats['answered'] > 0 ? number_format($vScore, 1).'/10 điểm' : 'Chưa làm' }}
+                                </span>
+                                <div class="small text-muted mt-1">
+                                    Đúng {{ $stVideoStats['correct'] }}/{{ $stVideoStats['total'] }} câu ({{ $stVideoStats['answered'] }} đã trả lời)
+                                </div>
+                            @else
+                                <span class="text-muted small">Không có câu hỏi</span>
+                            @endif
                         </td>
                         <td class="text-center">
                             <span class="badge bg-light text-dark border fw-semibold">
@@ -760,11 +795,11 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                     <!-- VÙNG MỞ RỘNG CHI TIẾT TỪNG BÀI HỌC VÀ TIẾN ĐỘ XEM VIDEO CỦA HỌC VIÊN -->
                     @if($stUser)
                     <tr class="collapse bg-light-subtle" id="studentDetail{{ $stUser->id }}">
-                        <td colspan="5" class="p-3">
+                        <td colspan="6" class="p-3">
                             <div class="card border rounded-3 p-3 bg-white shadow-2xs">
                                 <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                                     <div class="fw-bold small text-uppercase text-primary">
-                                        <i class="bi bi-play-circle-fill text-danger me-1"></i>Nhật ký xem video & hoàn thành bài giảng: {{ $stUser->name }}
+                                        <i class="bi bi-play-circle-fill text-danger me-1"></i>Nhật ký xem video & điểm tương tác: {{ $stUser->name }}
                                     </div>
                                     <span class="badge bg-light text-muted border small">Đồng bộ tự động</span>
                                 </div>
@@ -775,14 +810,15 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                                 <th>Tên bài học</th>
                                                 <th>Hình thức</th>
                                                 <th>Thời lượng đã xem</th>
-                                                <th style="min-width: 180px;">Tiến độ xem video</th>
+                                                <th style="min-width: 170px;">Tiến độ xem (%)</th>
+                                                <th style="min-width: 150px;">Điểm tương tác video</th>
                                                 <th>Trạng thái hoàn thành</th>
                                             </tr>
                                         </thead>
                                         <tbody class="small">
                                             @foreach($course->chapters as $ch)
                                             <tr class="table-light fw-bold text-secondary">
-                                                <td colspan="5">
+                                                <td colspan="6">
                                                     <i class="bi bi-folder me-1 text-warning"></i>{{ $ch->title }}
                                                 </td>
                                             </tr>
@@ -792,6 +828,7 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                             $lesVideo = $les->documents->first(fn ($d) => $d->isVideo());
                                             $isLesCompleted = $lesProg?->is_completed ?? false;
                                             $watchedPct = $lesProg ? $lesProg->watchedPercentage() : 0;
+                                            $lesViStats = $les->videoInteractionStatsFor($stUser);
                                             @endphp
                                             <tr>
                                                 <td class="ps-3">
@@ -808,13 +845,9 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                                     @if($lesProg && ($lesProg->last_position_seconds > 0 || $lesProg->duration_seconds > 0))
                                                     <span class="font-monospace text-dark fw-semibold">
                                                         @if($lesProg->formattedDuration() !== '—')
-                                                        @if($lesProg->formattedDuration() !== '—')
                                                             {{ $lesProg->formattedPosition() }} / {{ $lesProg->formattedDuration() }}
                                                         @else
                                                             {{ $lesProg->formattedPosition() }} <span class="text-muted small fst-italic">(Đang cập nhật tổng thời lượng)</span>
-                                                        @endif
-                                                        @else
-                                                        {{ $lesProg->formattedPosition() }} <span class="text-muted small fst-italic">(Đang cập nhật tổng thời lượng)</span>
                                                         @endif
                                                     </span>
                                                     @else
@@ -834,6 +867,20 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                                     </div>
                                                     @else
                                                     <span class="text-muted">{{ $isLesCompleted ? '100% (Đã học)' : '0%' }}</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($lesViStats['total'] > 0)
+                                                        @if($lesViStats['answered'] > 0)
+                                                            <span class="badge {{ $lesViStats['score_10'] >= 8 ? 'bg-success' : ($lesViStats['score_10'] >= 5 ? 'bg-warning text-dark' : 'bg-danger') }} font-mono">
+                                                                {{ number_format($lesViStats['score_10'], 1) }}/10
+                                                            </span>
+                                                            <span class="text-muted ms-1">({{ $lesViStats['correct'] }}/{{ $lesViStats['total'] }} đúng)</span>
+                                                        @else
+                                                            <span class="text-muted">Chưa trả lời (0/{{ $lesViStats['total'] }})</span>
+                                                        @endif
+                                                    @else
+                                                        <span class="text-muted">—</span>
                                                     @endif
                                                 </td>
                                                 <td>
@@ -866,7 +913,7 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                     @endif
                     @empty
                     <tr>
-                        <td colspan="5">
+                        <td colspan="6">
                             <x-empty-state title="Chưa có dữ liệu tiến độ" message="Khi có học viên tham gia và bắt đầu học, tiến độ xem video sẽ được thống kê tại đây." />
                         </td>
                     </tr>
