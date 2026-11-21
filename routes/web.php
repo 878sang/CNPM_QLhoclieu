@@ -163,6 +163,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/khoa-hoc/{course}/bai-hoc/{lesson}/tuong-tac', [InteractionController::class, 'store'])->name('interactions.store');
     Route::post('/tuong-tac/{interaction}/thich', [InteractionController::class, 'toggleLike'])->name('interactions.like');
     Route::delete('/tuong-tac/{interaction}', [InteractionController::class, 'destroy'])->name('interactions.destroy');
+    Route::patch('/tuong-tac/{interaction}', [InteractionController::class, 'update'])->name('interactions.update');
 
     // Học viên trả lời câu hỏi tương tác trên video
     Route::post('/hoc-vien/tuong-tac-video/{interaction}/tra-loi', [VideoInteractionController::class, 'answer'])->name('student.video-interactions.answer');

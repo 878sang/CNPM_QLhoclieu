@@ -9,6 +9,8 @@ use App\Models\Enrollment;
 use App\Models\Lesson;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\DocumentConversionService;
+use App\Services\DocumentConverter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -176,6 +178,15 @@ class DocumentManagementTest extends TestCase
 
     public function test_admin_can_access_global_documents_page_and_upload_with_auto_conversion(): void
     {
+        $pdfPath = 'documents/pdf/test-converted.pdf';
+        Storage::put($pdfPath, '%PDF-1.4 test conversion');
+        $this->mock(DocumentConverter::class, function ($mock) use ($pdfPath): void {
+            $mock->shouldReceive('needsConversion')->andReturn(true);
+            $mock->shouldReceive('convertToPdf')->andReturn($pdfPath);
+        });
+        $this->mock(DocumentConversionService::class, function ($mock) use ($pdfPath): void {
+            $mock->shouldReceive('convertOfficeToPdf')->andReturn($pdfPath);
+        });
         $this->actingAs($this->admin)->get(route('admin.documents.index'))->assertOk();
 
         $file = UploadedFile::fake()->create('bai-tap.docx', 120, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
@@ -198,11 +209,11 @@ class DocumentManagementTest extends TestCase
         Storage::assertExists($document->file_path);
         Storage::assertExists($document->converted_pdf_path);
 
-        // When viewing online, it returns the interactive document viewer
+        // Converted Office documents are streamed as PDF for online viewing.
         $this->actingAs($this->admin)
             ->get(route('courses.documents.show', [$this->course, $document]))
             ->assertOk()
-            ->assertSee('Bài tập tuần 1 Word');
+            ->assertHeader('Content-Type', 'application/pdf');
 
         // When requesting raw stream, it returns the raw file response
         $this->actingAs($this->admin)

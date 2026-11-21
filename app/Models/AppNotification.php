@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Mail\AppNotificationMail;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Mail;
 
 class AppNotification extends Model
 {
@@ -152,6 +154,14 @@ class AppNotification extends Model
         ])->all();
 
         self::insert($rows);
+
+        if (config('mail.notification_emails')) {
+            User::whereIn('id', $recipientIds)->where('status', 'active')->each(function (User $recipient) use ($title, $message, $actionUrl): void {
+                if (filled($recipient->email)) {
+                    Mail::to($recipient->email)->queue((new AppNotificationMail($title, $message, $actionUrl))->afterCommit());
+                }
+            });
+        }
 
         return count($rows);
     }

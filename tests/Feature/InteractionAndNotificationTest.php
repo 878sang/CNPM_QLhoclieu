@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\AppNotificationMail;
 use App\Models\AppNotification;
 use App\Models\Chapter;
 use App\Models\Course;
@@ -14,11 +15,157 @@ use App\Models\Subject;
 use App\Models\User;
 use App\Models\VideoInteraction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class InteractionAndNotificationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_author_can_edit_comment_without_changing_ownership_or_pin(): void
+    {
+        $comment = $this->comment();
+        $this->actingAs($this->student)->patch(route('interactions.update', $comment), [
+            'content' => '  Nội dung đã sửa  ', 'user_id' => $this->teacher->id, 'is_pinned' => true,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('lesson_interactions', ['id' => $comment->id, 'content' => 'Nội dung đã sửa', 'user_id' => $this->student->id, 'is_pinned' => false]);
+        $this->actingAs($this->student)->get(route('student.courses.learn', [$this->course, $this->lesson]))->assertOk()->assertSee('Nội dung đã sửa')->assertSee('Sửa bình luận');
+    }
+
+    public function test_author_can_edit_and_delete_their_reply(): void
+    {
+        $root = $this->comment();
+        $reply = $this->comment(['parent_id' => $root->id]);
+        $this->actingAs($this->student)->patch(route('interactions.update', $reply), ['content' => 'Phản hồi đã sửa'])->assertRedirect();
+        $this->assertDatabaseHas('lesson_interactions', ['id' => $reply->id, 'content' => 'Phản hồi đã sửa']);
+        $this->delete(route('interactions.destroy', $reply))->assertRedirect();
+        $this->assertModelMissing($reply);
+        $this->assertModelExists($root);
+    }
+
+    public function test_other_users_and_teacher_cannot_edit_student_content(): void
+    {
+        $comment = $this->comment();
+        foreach ([$this->otherStudent, $this->teacher, $this->admin] as $user) {
+            $this->actingAs($user)->patch(route('interactions.update', $comment), ['content' => 'Unauthorized edit'])->assertForbidden();
+        }
+        $this->assertDatabaseHas('lesson_interactions', ['id' => $comment->id, 'content' => 'Bình luận Sprint 4']);
+    }
+
+    #[TestWith([''])]
+    #[TestWith(['   '])]
+    #[TestWith([null])]
+    public function test_empty_edit_is_rejected(?string $content): void
+    {
+        $comment = $this->comment();
+        $this->actingAs($this->student)->patch(route('interactions.update', $comment), ['content' => $content])->assertSessionHasErrors(['content' => 'Vui lòng nhập nội dung bình luận.']);
+        $this->assertDatabaseHas('lesson_interactions', ['id' => $comment->id, 'content' => 'Bình luận Sprint 4']);
+    }
+
+    public function test_edit_length_limit_and_html_escaping(): void
+    {
+        $comment = $this->comment();
+        $this->actingAs($this->student)->patch(route('interactions.update', $comment), ['content' => str_repeat('a', 2001)])->assertSessionHasErrors('content');
+        $html = '<script>alert(1)</script>';
+        $this->patch(route('interactions.update', $comment), ['content' => $html])->assertSessionHasNoErrors();
+        $this->get(route('student.courses.learn', [$this->course, $this->lesson]))->assertOk()->assertSee($html)->assertDontSee($html, false);
+    }
+
+    public function test_guest_cannot_edit_comment(): void
+    {
+        $comment = $this->comment();
+        $this->patch(route('interactions.update', $comment), ['content' => 'Guest edit'])->assertRedirect(route('login'));
+        $this->assertDatabaseHas('lesson_interactions', ['id' => $comment->id, 'content' => 'Bình luận Sprint 4']);
+    }
+
+    public function test_student_cannot_pin_and_other_teacher_cannot_moderate(): void
+    {
+        $comment = $this->comment();
+        $this->actingAs($this->student)->patch(route('interactions.pin', $comment))->assertForbidden();
+        $teacher = User::factory()->create(['role_id' => $this->teacher->role_id]);
+        $this->actingAs($teacher)->patch(route('interactions.pin', $comment))->assertForbidden();
+        $this->delete(route('interactions.destroy', $comment))->assertForbidden();
+        $this->actingAs($this->teacher)->patch(route('interactions.pin', $comment))->assertRedirect();
+        $this->assertTrue($comment->refresh()->is_pinned);
+        $this->actingAs($this->admin)->patch(route('interactions.pin', $comment))->assertRedirect();
+        $this->assertFalse($comment->refresh()->is_pinned);
+    }
+
+    public function test_deleting_root_removes_replies_and_likes(): void
+    {
+        $root = $this->comment();
+        $reply = $this->comment(['parent_id' => $root->id]);
+        $root->likedByUsers()->attach($this->student);
+        $this->actingAs($this->teacher)->delete(route('interactions.destroy', $root))->assertRedirect();
+        $this->assertModelMissing($root);
+        $this->assertModelMissing($reply);
+        $this->assertDatabaseCount('lesson_interaction_likes', 0);
+    }
+
+    public function test_hidden_or_nested_parent_and_unpublished_lesson_are_rejected(): void
+    {
+        $root = $this->comment(['status' => 'hidden']);
+        $this->actingAs($this->student)->post(route('interactions.store', [$this->course, $this->lesson]), ['content' => 'Hidden reply', 'parent_id' => $root->id])->assertNotFound();
+        $root->update(['status' => 'open']);
+        $reply = $this->comment(['parent_id' => $root->id]);
+        $this->post(route('interactions.store', [$this->course, $this->lesson]), ['content' => 'Nested reply', 'parent_id' => $reply->id])->assertNotFound();
+        $this->lesson->update(['status' => 'draft']);
+        $this->post(route('interactions.store', [$this->course, $this->lesson]), ['content' => 'Draft comment'])->assertNotFound();
+        $this->assertDatabaseCount('lesson_interactions', 2);
+    }
+
+    public function test_unenrolled_author_cannot_edit_and_hidden_replies_are_not_rendered(): void
+    {
+        $root = $this->comment();
+        $this->comment(['parent_id' => $root->id, 'status' => 'hidden', 'content' => 'Hidden reply secret']);
+        $this->actingAs($this->student)->get(route('student.courses.learn', [$this->course, $this->lesson]))->assertOk()->assertDontSee('Hidden reply secret');
+        $this->course->enrollments()->delete();
+        $this->patch(route('interactions.update', $root), ['content' => 'Former student'])->assertForbidden();
+    }
+
+    public function test_notification_is_private_and_mark_all_only_affects_owner(): void
+    {
+        AppNotification::notifyUsers([$this->student, $this->otherStudent], 'Thông báo riêng', 'Nội dung');
+        $other = AppNotification::where('user_id', $this->otherStudent->id)->firstOrFail();
+        $this->actingAs($this->student)->get(route('notifications.read', $other))->assertForbidden();
+        $this->delete(route('notifications.destroy', $other))->assertForbidden();
+        $this->post(route('notifications.mark_all_read'))->assertRedirect();
+        $this->assertNull($other->refresh()->read_at);
+        $this->assertSame(0, AppNotification::where('user_id', $this->student->id)->unread()->count());
+    }
+
+    public function test_notification_email_is_queued_once_per_active_recipient(): void
+    {
+        Mail::fake();
+        config(['mail.notification_emails' => true]);
+        $this->otherStudent->update(['status' => 'locked']);
+        AppNotification::notifyUsers([$this->student, $this->student, $this->otherStudent], 'Sprint 4', 'Có phản hồi mới', actionUrl: route('notifications.index'));
+        Mail::assertQueued(AppNotificationMail::class, fn ($mail) => $mail->hasTo($this->student->email) && $mail->notificationTitle === 'Sprint 4' && $mail->notificationMessage === 'Có phản hồi mới');
+        Mail::assertQueuedCount(1);
+        $this->assertDatabaseCount('app_notifications', 2);
+    }
+
+    public function test_email_can_be_disabled_and_escapes_user_content(): void
+    {
+        Mail::fake();
+        config(['mail.notification_emails' => false]);
+        AppNotification::notifyUsers([$this->student], 'Title', 'Message');
+        Mail::assertNothingQueued();
+        $html = (new AppNotificationMail('<script>Title</script>', '<script>Message</script>', 'javascript:alert(1)'))->render();
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringNotContainsString('javascript:', $html);
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+    }
+
+    private function comment(array $attributes = []): LessonInteraction
+    {
+        return LessonInteraction::create(array_merge([
+            'course_id' => $this->course->id, 'lesson_id' => $this->lesson->id,
+            'user_id' => $this->student->id, 'type' => 'discussion', 'content' => 'Bình luận Sprint 4',
+        ], $attributes));
+    }
 
     private User $admin;
 

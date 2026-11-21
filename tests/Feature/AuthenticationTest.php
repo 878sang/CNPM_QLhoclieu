@@ -6,8 +6,10 @@ use App\Models\Course;
 use App\Models\Role;
 use App\Models\Subject;
 use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Socialite\Facades\Socialite;
 use Mockery;
 use Tests\TestCase;
@@ -15,6 +17,23 @@ use Tests\TestCase;
 class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_password_reset_email_and_token_allow_reset_only_once(): void
+    {
+        Notification::fake();
+        $user = $this->user();
+        $this->post(route('password.email'), ['email' => $user->email])->assertSessionHasNoErrors();
+        $token = null;
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use (&$token) {
+            $token = $notification->token;
+
+            return true;
+        });
+        $payload = ['email' => $user->email, 'token' => $token, 'password' => 'new-password123', 'password_confirmation' => 'new-password123'];
+        $this->post(route('password.update'), $payload)->assertRedirect(route('login'));
+        $this->assertTrue(Hash::check('new-password123', $user->refresh()->password));
+        $this->post(route('password.update'), $payload)->assertSessionHasErrors('email');
+    }
 
     private function user(string $role = 'student', string $password = 'password'): User
     {

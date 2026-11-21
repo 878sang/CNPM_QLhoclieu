@@ -16,6 +16,8 @@ return [
 
     'default' => env('MAIL_MAILER', 'log'),
 
+    'notification_emails' => env('NOTIFICATION_EMAIL_ENABLED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations

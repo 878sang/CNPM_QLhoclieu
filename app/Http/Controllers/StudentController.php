@@ -12,10 +12,12 @@ use App\Models\Progress;
 use App\Models\Subject;
 use App\Models\User;
 use App\Models\VideoInteractionResponse;
+use App\Services\GeminiTutorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class StudentController extends Controller
@@ -198,6 +200,7 @@ class StudentController extends Controller
 
         // Tương tác / Hỏi đáp bài học
         $lessonInteractions = LessonInteraction::with([
+            'replies' => fn ($query) => $query->where('status', '!=', LessonInteraction::STATUS_HIDDEN),
             'user:id,name,role_id',
             'user.role:id,name,display_name',
             'replies.user:id,name,role_id',
@@ -220,8 +223,8 @@ class StudentController extends Controller
 
         $aiConfigured = filled(config('services.gemini.api_key'));
         $aiContextReady = $aiConfigured
-            ? (app(\App\Services\GeminiTutorService::class)->hasFreshContext($lesson)
-                || \Illuminate\Support\Facades\Cache::has("ai_prepare_cooldown_{$lesson->id}"))
+            ? (app(GeminiTutorService::class)->hasFreshContext($lesson)
+                || Cache::has("ai_prepare_cooldown_{$lesson->id}"))
             : false;
 
         return view('student.learn', [

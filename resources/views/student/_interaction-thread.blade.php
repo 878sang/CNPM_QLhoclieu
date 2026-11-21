@@ -44,6 +44,7 @@
     </div>
 
     <div class="mb-2 text-dark" style="white-space: pre-line;">{{ $item->content }}</div>
+    @include('interactions._edit', ['interaction' => $item])
 
     @if($item->replies->isNotEmpty())
         <div class="ms-3 ps-3 border-start border-2 mt-2 mb-2">
@@ -57,6 +58,14 @@
                         <span class="text-muted ms-2">{{ $reply->created_at->diffForHumans() }}</span>
                     </div>
                     <div style="white-space: pre-line;">{{ $reply->content }}</div>
+                    @include('interactions._edit', ['interaction' => $reply])
+                    @if($reply->user_id === $user->id)
+                        <form method="POST" action="{{ route('interactions.destroy', $reply) }}" onsubmit="return confirm('Xóa phản hồi này?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Xóa phản hồi</button>
+                        </form>
+                    @endif
                 </div>
             @endforeach
         </div>

@@ -241,6 +241,7 @@
                 @endif
 
                 <div class="p-3 bg-light rounded border mb-3" style="white-space: pre-line;">{{ $item->content }}</div>
+                @include('interactions._edit', ['interaction' => $item])
 
                 <!-- CÁC PHẢN HỒI -->
                 @if($item->replies->isNotEmpty())
@@ -262,6 +263,7 @@
                                     </form>
                                 </div>
                                 <div class="small text-dark" style="white-space: pre-line;">{{ $reply->content }}</div>
+                                @include('interactions._edit', ['interaction' => $reply])
                             </div>
                         @endforeach
                     </div>

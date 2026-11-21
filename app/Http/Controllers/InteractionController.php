@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateInteractionRequest;
 use App\Models\AppNotification;
 use App\Models\Course;
 use App\Models\Lesson;
@@ -97,6 +98,7 @@ class InteractionController extends Controller
         $isEnrolled = $course->enrollments()->where('user_id', $user->id)->where('status', 'active')->exists();
         $canManage = $user->can('update', $course);
         abort_unless($isEnrolled || $canManage, 403, 'Bạn cần tham gia khóa học để tương tác.');
+        abort_unless($canManage || $lesson->status === 'published', 404);
 
         $parsedTimestamp = $this->parseTimestampSeconds(
             $request->input('video_timestamp_input'),
@@ -119,6 +121,8 @@ class InteractionController extends Controller
         if (! empty($validated['parent_id'])) {
             $parent = LessonInteraction::where('course_id', $course->id)
                 ->where('lesson_id', $lesson->id)
+                ->whereNull('parent_id')
+                ->where('status', '!=', LessonInteraction::STATUS_HIDDEN)
                 ->findOrFail($validated['parent_id']);
         }
 
@@ -272,15 +276,23 @@ class InteractionController extends Controller
         return back();
     }
 
+    public function update(UpdateInteractionRequest $request, LessonInteraction $interaction): RedirectResponse
+    {
+        $interaction->update(['content' => $request->validated('content')]);
+
+        return back()->with('status', 'Đã cập nhật bình luận.')->with('interaction_subtab', ($interaction->parent ?? $interaction)->isQuestion() ? 'question' : 'discussion');
+    }
+
     public function destroy(LessonInteraction $interaction): RedirectResponse
     {
         /** @var User $user */
         $user = Auth::user();
         abort_unless($interaction->user_id === $user->id || $user->can('update', $interaction->course), 403);
 
+        $subtab = ($interaction->parent ?? $interaction)->isQuestion() ? 'question' : 'discussion';
         $interaction->delete();
 
-        return back()->with('status', 'Đã xóa tương tác.');
+        return back()->with('status', 'Đã xóa tương tác.')->with('interaction_subtab', $subtab);
     }
 
     private function parseTimestampSeconds(mixed $timestampInput, mixed $rawSeconds): ?int
