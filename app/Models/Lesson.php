@@ -11,7 +11,22 @@ class Lesson extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['chapter_id', 'title', 'position', 'status'];
+    protected $fillable = [
+        'chapter_id',
+        'title',
+        'position',
+        'status',
+        'ai_context_text',
+        'ai_context_hash',
+        'ai_context_ready_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'ai_context_ready_at' => 'datetime',
+        ];
+    }
 
     public function isDraft(): bool
     {

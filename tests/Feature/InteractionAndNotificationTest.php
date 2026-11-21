@@ -171,46 +171,91 @@ class InteractionAndNotificationTest extends TestCase
             ->assertJson([
                 'success' => true,
                 'is_correct' => false,
+                'selected_answer' => 'true',
+                'attempts' => 1,
+                'correct_answer' => 'false',
+                'stats' => [
+                    'total' => 1,
+                    'answered' => 1,
+                    'correct' => 0,
+                    'score_10' => 0,
+                    'accuracy_percent' => 0,
+                ],
+            ]);
+
+        // Học viên KHÔNG được phép sửa lại đáp án sau khi đã làm rồi (bị chặn 422 và giữ nguyên đáp án cũ)
+        $this->actingAs($this->student)
+            ->postJson(route('student.video-interactions.answer', $interaction), ['answer' => 'false'])
+            ->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+                'already_answered' => true,
+                'selected_answer' => 'true',
+                'is_correct' => false,
                 'attempts' => 1,
                 'correct_answer' => 'false',
             ]);
 
-        // Thử lại và trả lời đúng lần 2
+        $this->assertDatabaseHas('video_interaction_responses', [
+            'video_interaction_id' => $interaction->id,
+            'user_id' => $this->student->id,
+            'selected_answer' => 'true',
+            'is_correct' => false,
+            'attempts' => 1,
+        ]);
+
+        // Thêm câu hỏi thứ 2 và học viên trả lời đúng ngay lần đầu -> đạt 5.0/10 điểm
+        $interaction2 = VideoInteraction::create([
+            'course_id' => $this->course->id,
+            'lesson_id' => $this->lesson->id,
+            'document_id' => $this->videoDoc->id,
+            'timestamp_seconds' => 60,
+            'question_type' => 'true_false',
+            'question' => 'Đạo hàm của hằng số bằng 0?',
+            'options' => ['true' => 'Đúng', 'false' => 'Sai'],
+            'correct_answer' => 'true',
+            'explanation' => 'Đạo hàm của hằng số luôn bằng 0.',
+            'is_required' => true,
+            'created_by' => $this->teacher->id,
+        ]);
+
         $this->actingAs($this->student)
-            ->postJson(route('student.video-interactions.answer', $interaction), ['answer' => 'false'])
+            ->postJson(route('student.video-interactions.answer', $interaction2), ['answer' => 'true'])
             ->assertOk()
             ->assertJson([
                 'success' => true,
                 'is_correct' => true,
-                'attempts' => 2,
+                'attempts' => 1,
                 'stats' => [
-                    'total' => 1,
-                    'answered' => 1,
+                    'total' => 2,
+                    'answered' => 2,
                     'correct' => 1,
-                    'score_10' => 10,
-                    'accuracy_percent' => 100,
+                    'score_10' => 5,
+                    'accuracy_percent' => 50,
                 ],
             ]);
 
-        // Trang học hiển thị câu hỏi tương tác & điểm tương tác tách riêng
+        // Trang học hiển thị câu hỏi tương tác, chế độ chỉ xem lại (không có nút Thử lại) & điểm tương tác tách riêng
         $this->actingAs($this->student)
             ->get(route('student.courses.learn', [$this->course, $this->lesson]))
             ->assertOk()
-            ->assertSee('Bài học có 1 lần tương tác (1 câu hỏi trên video)')
-            ->assertSee('Điểm tương tác: 10.0/10');
+            ->assertSee('Bài học có 2 lần tương tác (2 câu hỏi trên video)')
+            ->assertSee('Điểm tương tác: 5.0/10')
+            ->assertSee('Chế độ xem lại')
+            ->assertDontSee('viRetryBtn');
 
         // Trang tiến độ học viên & tab Tiến độ của giảng viên cùng hiển thị Điểm tương tác video tách riêng
         $this->actingAs($this->student)
             ->get(route('student.progress'))
             ->assertOk()
-            ->assertSee('10.0/10 điểm')
-            ->assertSee('Đúng 1/1 câu');
+            ->assertSee('5.0/10 điểm')
+            ->assertSee('Đúng 1/2 câu');
 
         $this->actingAs($this->teacher)
             ->get(route('courses.show', ['course' => $this->course, 'tab' => 'progress']))
             ->assertOk()
             ->assertSee('Điểm tương tác video')
-            ->assertSee('10.0/10 điểm');
+            ->assertSee('5.0/10 điểm');
     }
 
     public function test_teacher_can_batch_create_and_edit_video_interactions(): void

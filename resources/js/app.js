@@ -1,7 +1,10 @@
 import * as bootstrap from 'bootstrap';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import '../css/app.css';
 
 window.bootstrap = bootstrap;
+window.katex = katex;
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiTutorMessage;
 use App\Models\Assignment;
 use App\Models\Course;
 use App\Models\DocumentProgress;
@@ -155,6 +156,8 @@ class StudentController extends Controller
                 'videoInteractions' => collect(),
                 'videoResponsesByInteraction' => collect(),
                 'lessonInteractions' => collect(),
+                'aiMessages' => collect(),
+                'aiConfigured' => filled(config('services.gemini.api_key')),
             ]);
         }
 
@@ -209,6 +212,18 @@ class StudentController extends Controller
             ->latest()
             ->get();
 
+        $aiMessages = AiTutorMessage::where('user_id', $user->id)
+            ->where('lesson_id', $lesson->id)
+            ->orderBy('id')
+            ->limit(40)
+            ->get();
+
+        $aiConfigured = filled(config('services.gemini.api_key'));
+        $aiContextReady = $aiConfigured
+            ? (app(\App\Services\GeminiTutorService::class)->hasFreshContext($lesson)
+                || \Illuminate\Support\Facades\Cache::has("ai_prepare_cooldown_{$lesson->id}"))
+            : false;
+
         return view('student.learn', [
             'course' => $course,
             'chapters' => $chapters,
@@ -221,6 +236,9 @@ class StudentController extends Controller
             'videoInteractions' => $videoInteractions,
             'videoResponsesByInteraction' => $videoResponsesByInteraction,
             'lessonInteractions' => $lessonInteractions,
+            'aiMessages' => $aiMessages,
+            'aiConfigured' => $aiConfigured,
+            'aiContextReady' => $aiContextReady,
         ]);
     }
 

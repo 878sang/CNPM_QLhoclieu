@@ -40,6 +40,9 @@ class Document extends Model
         'pdf_path',
         'conversion_status',
         'rejection_reason',
+        'gemini_file_uri',
+        'gemini_file_name',
+        'gemini_file_expires_at',
     ];
 
     protected function casts(): array
@@ -49,6 +52,7 @@ class Document extends Model
             'allow_download' => 'boolean',
             'size' => 'integer',
             'reviewed_at' => 'datetime',
+            'gemini_file_expires_at' => 'datetime',
         ];
     }
 
@@ -250,6 +254,19 @@ class Document extends Model
         }
 
         return $this->url;
+    }
+
+    public function youtubeWatchUrl(): ?string
+    {
+        if (! $this->url) {
+            return null;
+        }
+
+        if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $this->url, $matches)) {
+            return 'https://www.youtube.com/watch?v='.$matches[1];
+        }
+
+        return null;
     }
 
     public function formattedSize(): string

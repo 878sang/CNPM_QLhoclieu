@@ -44,4 +44,12 @@ return [
         'binary' => env('LIBREOFFICE_BINARY', 'soffice'),
     ],
 
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.1-flash-lite'),
+        'fast_model' => env('GEMINI_FAST_MODEL', 'gemini-3.1-flash-lite'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 90),
+    ],
+
 ];

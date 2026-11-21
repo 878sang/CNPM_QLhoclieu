@@ -215,15 +215,51 @@ class VideoInteractionController extends Controller
         $selected = trim($data['answer']);
         $isCorrect = $interaction->checkAnswer($selected);
 
-        $response = VideoInteractionResponse::firstOrNew([
+        // Học sinh không được sửa đáp án tương tác sau khi đã làm rồi mà chỉ được xem lại
+        $existing = VideoInteractionResponse::where('video_interaction_id', $interaction->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($existing) {
+            $totalInVideo = VideoInteraction::where('document_id', $interaction->document_id)->count();
+            $userResponses = VideoInteractionResponse::where('user_id', $user->id)
+                ->whereHas('interaction', fn($q) => $q->where('document_id', $interaction->document_id))
+                ->get();
+
+            $answeredCount = $userResponses->count();
+            $correctCount = $userResponses->where('is_correct', true)->count();
+            $score10 = $totalInVideo > 0 ? round($correctCount * 10 / $totalInVideo, 1) : null;
+            $accuracyPct = $totalInVideo > 0 ? (int) round($correctCount * 100 / $totalInVideo) : null;
+
+            return response()->json([
+                'success' => false,
+                'already_answered' => true,
+                'message' => 'Bạn đã hoàn thành câu hỏi tương tác này rồi và không thể thay đổi đáp án.',
+                'interaction_id' => $interaction->id,
+                'is_correct' => (bool) $existing->is_correct,
+                'selected_answer' => $existing->selected_answer,
+                'correct_answer' => $interaction->correct_answer,
+                'correct_answer_label' => $interaction->correctAnswerLabel(),
+                'explanation' => $interaction->explanation,
+                'attempts' => $existing->attempts,
+                'stats' => [
+                    'total' => $totalInVideo,
+                    'answered' => $answeredCount,
+                    'correct' => $correctCount,
+                    'score_10' => $score10,
+                    'accuracy_percent' => $accuracyPct,
+                ],
+            ], 422);
+        }
+
+        $response = new VideoInteractionResponse([
             'video_interaction_id' => $interaction->id,
             'user_id' => $user->id,
+            'selected_answer' => $selected,
+            'is_correct' => $isCorrect,
+            'attempts' => 1,
+            'answered_at' => now(),
         ]);
-
-        $response->selected_answer = $selected;
-        $response->is_correct = $isCorrect;
-        $response->attempts = $response->exists ? ((int) $response->attempts + 1) : 1;
-        $response->answered_at = now();
         $response->save();
 
         $totalInVideo = VideoInteraction::where('document_id', $interaction->document_id)->count();

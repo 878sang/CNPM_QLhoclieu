@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AiTutorController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChapterController;
@@ -165,6 +166,13 @@ Route::middleware('auth')->group(function () {
 
     // Học viên trả lời câu hỏi tương tác trên video
     Route::post('/hoc-vien/tuong-tac-video/{interaction}/tra-loi', [VideoInteractionController::class, 'answer'])->name('student.video-interactions.answer');
+
+    // Trợ lý AI hỏi đáp theo video & tài liệu bài học
+    Route::post('/hoc-vien/khoa-hoc/{course}/bai-hoc/{lesson}/tro-ly-ai/chuan-bi', [AiTutorController::class, 'prepare'])->name('student.ai-tutor.prepare');
+    Route::post('/hoc-vien/khoa-hoc/{course}/bai-hoc/{lesson}/tro-ly-ai/stream', [AiTutorController::class, 'stream'])->name('student.ai-tutor.stream');
+    Route::post('/hoc-vien/khoa-hoc/{course}/bai-hoc/{lesson}/tro-ly-ai', [AiTutorController::class, 'ask'])->name('student.ai-tutor.ask');
+    Route::delete('/hoc-vien/khoa-hoc/{course}/bai-hoc/{lesson}/tro-ly-ai', [AiTutorController::class, 'reset'])->name('student.ai-tutor.reset');
+    Route::get('/hoc-vien/tro-ly-ai/anh/{message}', [AiTutorController::class, 'image'])->name('student.ai-tutor.image');
 
     // Quản lý thông báo (tất cả vai trò)
     Route::prefix('thong-bao')->name('notifications.')->group(function () {

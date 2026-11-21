@@ -155,6 +155,7 @@
                                         <video
                                             id="lessonVideoPlayer"
                                             controls
+                                            preload="metadata"
                                             controlsList="nodownload"
                                             class="w-100"
                                             style="max-height: 520px; background: #000;"
@@ -253,9 +254,6 @@
                                             @endif
                                         </div>
                                     @endif
-                                    <div class="p-2 bg-white rounded border mt-2 small text-muted">
-                                        <i class="bi bi-info-circle me-1 text-primary"></i>Video phát trực tuyến từ nền tảng liên kết. Bạn có thể bấm nút <strong>Đánh dấu hoàn thành</strong> ở trên sau khi xem xong.
-                                    </div>
                                 @endif
 
                                 @if(($videoInteractions ?? collect())->isNotEmpty())
@@ -289,7 +287,7 @@
                                             <span><span class="d-inline-block rounded-circle bg-warning me-1" style="width:10px;height:10px;"></span>Chưa trả lời</span>
                                             <span><span class="d-inline-block rounded-circle bg-success me-1" style="width:10px;height:10px;"></span>Trả lời đúng</span>
                                             <span><span class="d-inline-block rounded-circle bg-danger me-1" style="width:10px;height:10px;"></span>Trả lời sai</span>
-                                            <span class="ms-auto fst-italic">* Điểm tương tác được tính tách riêng với tiến độ xem video (%).</span>
+                                            <span class="ms-auto fst-italic"><i class="bi bi-lock-fill me-1 text-secondary"></i>Câu hỏi đã làm sẽ được lưu và chỉ có thể xem lại, không thể sửa đáp án.</span>
                                         </div>
                                         <div class="d-flex flex-wrap gap-2" id="video_checkpoint_pills">
                                             @foreach($videoInteractions as $idx => $vi)
@@ -382,7 +380,7 @@
                                                                 <i class="bi bi-arrows-fullscreen me-1"></i>Toàn màn hình
                                                             </a>
                                                         </div>
-                                                        <iframe src="{{ route('courses.documents.show', [$course, $doc]) }}#toolbar=1" class="w-100 rounded border" style="height: 540px;" title="{{ $doc->title }}"></iframe>
+                                                        <iframe data-src="{{ route('courses.documents.show', [$course, $doc]) }}#toolbar=1" src="about:blank" class="w-100 rounded border lazy-doc-iframe" style="height: 540px;" title="{{ $doc->title }}"></iframe>
                                                     @elseif($doc->isOffice() && $doc->file_path)
                                                         <div class="text-center p-4 bg-light rounded border">
                                                             <i class="bi {{ $doc->typeIcon() }} display-4 mb-2 text-secondary"></i>
@@ -709,6 +707,11 @@
         @endforeach
     </div>
 </div>
+
+@if($currentLesson)
+    <!-- NÚT NỔI & POPUP TRỢ LÝ AI GÓC DƯỚI PHẢI (MỞ NGAY TRÊN TRANG, KHÔNG CHUYỂN TAB) -->
+    @include('student._ai-tutor')
+@endif
 
 <script>
 // ĐIỀU CHỈNH TỐC ĐỘ PHÁT VIDEO
@@ -1084,11 +1087,16 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg overflow-hidden">
             <div class="modal-header bg-primary text-white py-3">
-                <div>
-                    <span class="badge bg-white text-primary fw-bold me-2" id="viModalTimestamp">00:00</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-white text-primary fw-bold" id="viModalTimestamp">00:00</span>
                     <span class="badge bg-warning text-dark" id="viModalType">Trắc nghiệm</span>
+                    <span class="badge bg-info-subtle text-info-emphasis border border-info d-none" id="viModalReviewBadge">
+                        <i class="bi bi-eye-fill me-1"></i>Chế độ xem lại
+                    </span>
                 </div>
-                <h5 class="modal-title h6 fw-bold mb-0 ms-auto" id="viModalRequiredBadge">Câu hỏi tương tác</h5>
+                <div class="ms-auto" id="viModalRequiredBadgeWrap">
+                    <span class="badge bg-white-subtle text-white border border-light-subtle" id="viModalRequiredBadge">Câu hỏi tương tác</span>
+                </div>
             </div>
             <div class="modal-body p-4">
                 <h3 class="h5 fw-bold text-dark mb-3" id="viModalQuestion"></h3>
@@ -1098,9 +1106,6 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="modal-footer bg-light d-flex justify-content-between">
                 <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="viSkipBtn">Bỏ qua & tiếp tục xem</button>
                 <div class="ms-auto d-flex gap-2">
-                    <button type="button" class="btn btn-outline-warning btn-sm d-none" id="viRetryBtn">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>Thử lại
-                    </button>
                     <button type="button" class="btn btn-primary fw-semibold px-4" id="viSubmitBtn">
                         <i class="bi bi-check2-circle me-1"></i>Kiểm tra đáp án
                     </button>
@@ -1129,6 +1134,9 @@ document.addEventListener('DOMContentLoaded', function () {
             'answered' => (bool) $resp,
             'is_correct' => $resp ? (bool) $resp->is_correct : null,
             'selected_answer' => $resp?->selected_answer,
+            'correct_answer' => $resp ? $vi->correct_answer : null,
+            'correct_answer_label' => $resp ? $vi->correctAnswerLabel() : null,
+            'explanation' => $resp ? $vi->explanation : null,
         ];
     })->values();
 @endphp
@@ -1178,12 +1186,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const tsBadge = document.getElementById('viModalTimestamp');
     const typeBadge = document.getElementById('viModalType');
+    const reviewBadge = document.getElementById('viModalReviewBadge');
     const reqBadge = document.getElementById('viModalRequiredBadge');
     const questionEl = document.getElementById('viModalQuestion');
     const optionsEl = document.getElementById('viModalOptions');
     const feedbackEl = document.getElementById('viModalFeedback');
     const submitBtn = document.getElementById('viSubmitBtn');
-    const retryBtn = document.getElementById('viRetryBtn');
     const continueBtn = document.getElementById('viContinueBtn');
     const skipBtn = document.getElementById('viSkipBtn');
     const summaryEl = document.getElementById('video_quiz_summary');
@@ -1288,55 +1296,160 @@ document.addEventListener('DOMContentLoaded', function () {
         isModalOpen = true;
         pauseVideo();
 
+        const isReview = Boolean(item.answered);
         const stepText = queueTotal > 1 ? ` · Câu ${queueIndex + 1}/${queueTotal}` : '';
         tsBadge.textContent = 'Mốc ' + item.formatted_timestamp + stepText;
         typeBadge.textContent = item.type_label;
-        reqBadge.textContent = item.is_required ? 'Bắt buộc trả lời' : 'Câu hỏi tương tác';
         questionEl.textContent = item.question;
 
-        feedbackEl.className = 'alert d-none mb-0';
-        feedbackEl.innerHTML = '';
-        submitBtn.classList.remove('d-none');
-        submitBtn.disabled = false;
-        retryBtn.classList.add('d-none');
-        continueBtn.classList.add('d-none');
+        if (reviewBadge) {
+            reviewBadge.classList.toggle('d-none', !isReview);
+        }
+
+        if (isReview) {
+            reqBadge.className = item.is_correct
+                ? 'badge bg-success-subtle text-success border border-success'
+                : 'badge bg-danger-subtle text-danger border border-danger';
+            reqBadge.innerHTML = item.is_correct
+                ? '<i class="bi bi-check-circle-fill me-1"></i>Đã làm · Chính xác'
+                : '<i class="bi bi-x-circle-fill me-1"></i>Đã làm · Chưa chính xác';
+        } else {
+            reqBadge.className = 'badge bg-white-subtle text-white border border-light-subtle';
+            reqBadge.textContent = item.is_required ? 'Bắt buộc trả lời' : 'Câu hỏi tương tác';
+        }
+
         continueBtn.innerHTML = (queueIndex < queueTotal - 1)
             ? '<i class="bi bi-arrow-right me-1"></i>Câu hỏi tiếp theo'
-            : '<i class="bi bi-play-fill me-1"></i>Tiếp tục xem video';
-        skipBtn.classList.toggle('d-none', item.is_required);
+            : (isReview ? '<i class="bi bi-play-fill me-1"></i>Đóng & tiếp tục xem video' : '<i class="bi bi-play-fill me-1"></i>Tiếp tục xem video');
 
         optionsEl.innerHTML = '';
-        if (item.question_type === 'multiple_choice' && item.options) {
-            const hint = document.createElement('div');
-            hint.className = 'small text-muted mb-1';
-            hint.innerHTML = '<i class="bi bi-info-circle me-1"></i>Chọn <strong>1 đáp án đúng duy nhất</strong>:';
-            optionsEl.appendChild(hint);
 
-            Object.entries(item.options).forEach(([key, label]) => {
-                const wrap = document.createElement('label');
-                wrap.className = 'border rounded-3 p-3 d-flex align-items-center gap-3 bg-light';
-                wrap.style.cursor = 'pointer';
-                wrap.innerHTML = `
-                    <input class="form-check-input mt-0" type="radio" name="vi_answer" value="${key}" ${item.selected_answer === key ? 'checked' : ''}>
-                    <span><strong class="me-1">${key}.</strong> ${escapeHtml(label)}</span>
+        if (isReview) {
+            // Chế độ CHỈ XEM LẠI: khóa toàn bộ input, tô màu đáp án đã chọn và đáp án đúng
+            if (item.question_type === 'multiple_choice' && item.options) {
+                Object.entries(item.options).forEach(([key, label]) => {
+                    const isSelected = String(item.selected_answer ?? '').toUpperCase() === String(key).toUpperCase();
+                    const isCorrectOption = String(item.correct_answer ?? '').toUpperCase() === String(key).toUpperCase();
+
+                    let borderCls = 'border-secondary-subtle bg-light text-muted opacity-75';
+                    let badgeHtml = '';
+
+                    if (isSelected && item.is_correct) {
+                        borderCls = 'border-success bg-success-subtle text-success-emphasis fw-bold shadow-sm';
+                        badgeHtml = '<span class="badge bg-success ms-auto"><i class="bi bi-check-circle-fill me-1"></i>Bạn chọn đúng</span>';
+                    } else if (isSelected && !item.is_correct) {
+                        borderCls = 'border-danger bg-danger-subtle text-danger-emphasis fw-bold shadow-sm';
+                        badgeHtml = '<span class="badge bg-danger ms-auto"><i class="bi bi-x-circle-fill me-1"></i>Bạn đã chọn</span>';
+                    } else if (!item.is_correct && isCorrectOption) {
+                        borderCls = 'border-success bg-success-subtle text-success-emphasis fw-bold';
+                        badgeHtml = '<span class="badge bg-success ms-auto"><i class="bi bi-check2 me-1"></i>Đáp án đúng</span>';
+                    }
+
+                    const wrap = document.createElement('div');
+                    wrap.className = `border rounded-3 p-3 d-flex align-items-center gap-3 ${borderCls}`;
+                    wrap.innerHTML = `
+                        <input class="form-check-input mt-0" type="radio" name="vi_answer_review" disabled ${isSelected ? 'checked' : ''}>
+                        <span><strong class="me-1">${escapeHtml(key)}.</strong> ${escapeHtml(label)}</span>
+                        ${badgeHtml}
+                    `;
+                    optionsEl.appendChild(wrap);
+                });
+            } else if (item.question_type === 'true_false') {
+                [['true', 'Đúng', 'text-success'], ['false', 'Sai', 'text-danger']].forEach(([val, label, cls]) => {
+                    const isSelected = String(item.selected_answer ?? '').toLowerCase() === val;
+                    const isCorrectOption = String(item.correct_answer ?? '').toLowerCase() === val;
+
+                    let borderCls = 'border-secondary-subtle bg-light text-muted opacity-75';
+                    let badgeHtml = '';
+
+                    if (isSelected && item.is_correct) {
+                        borderCls = 'border-success bg-success-subtle text-success-emphasis fw-bold shadow-sm';
+                        badgeHtml = '<span class="badge bg-success ms-auto"><i class="bi bi-check-circle-fill me-1"></i>Bạn chọn đúng</span>';
+                    } else if (isSelected && !item.is_correct) {
+                        borderCls = 'border-danger bg-danger-subtle text-danger-emphasis fw-bold shadow-sm';
+                        badgeHtml = '<span class="badge bg-danger ms-auto"><i class="bi bi-x-circle-fill me-1"></i>Bạn đã chọn</span>';
+                    } else if (!item.is_correct && isCorrectOption) {
+                        borderCls = 'border-success bg-success-subtle text-success-emphasis fw-bold';
+                        badgeHtml = '<span class="badge bg-success ms-auto"><i class="bi bi-check2 me-1"></i>Đáp án đúng</span>';
+                    }
+
+                    const wrap = document.createElement('div');
+                    wrap.className = `border rounded-3 p-3 d-flex align-items-center gap-3 ${borderCls}`;
+                    wrap.innerHTML = `
+                        <input class="form-check-input mt-0" type="radio" name="vi_answer_review" disabled ${isSelected ? 'checked' : ''}>
+                        <span class="fw-semibold ${cls}">${label}</span>
+                        ${badgeHtml}
+                    `;
+                    optionsEl.appendChild(wrap);
+                });
+            } else {
+                const isCorrect = Boolean(item.is_correct);
+                optionsEl.innerHTML = `
+                    <div class="mb-2">
+                        <label class="form-label small text-muted">Câu trả lời bạn đã gửi:</label>
+                        <input type="text" class="form-control form-control-lg bg-light ${isCorrect ? 'border-success text-success fw-bold' : 'border-danger text-danger'}" value="${escapeHtml(item.selected_answer || '')}" disabled readonly>
+                    </div>
                 `;
-                optionsEl.appendChild(wrap);
-            });
-        } else if (item.question_type === 'true_false') {
-            [['true', 'Đúng', 'text-success'], ['false', 'Sai', 'text-danger']].forEach(([val, label, cls]) => {
-                const wrap = document.createElement('label');
-                wrap.className = 'border rounded-3 p-3 d-flex align-items-center gap-3 bg-light';
-                wrap.style.cursor = 'pointer';
-                wrap.innerHTML = `
-                    <input class="form-check-input mt-0" type="radio" name="vi_answer" value="${val}" ${item.selected_answer === val ? 'checked' : ''}>
-                    <span class="fw-semibold ${cls}">${label}</span>
-                `;
-                optionsEl.appendChild(wrap);
-            });
-        } else {
-            optionsEl.innerHTML = `
-                <input type="text" id="viShortAnswerInput" class="form-control form-control-lg" placeholder="Nhập câu trả lời của bạn..." value="${escapeHtml(item.selected_answer || '')}">
+            }
+
+            feedbackEl.className = `alert ${item.is_correct ? 'alert-success' : 'alert-danger'} mb-0`;
+            feedbackEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="fw-bold"><i class="bi ${item.is_correct ? 'bi-check-circle-fill' : 'bi-x-circle-fill'} me-1"></i>${item.is_correct ? 'Chính xác!' : 'Chưa chính xác!'}</span>
+                    <span class="badge bg-dark-subtle text-dark small"><i class="bi bi-lock-fill me-1"></i>Đã khóa đáp án</span>
+                </div>
+                ${!item.is_correct && (item.correct_answer_label || item.correct_answer) ? `<div class="small mt-1">Đáp án đúng: <strong>${escapeHtml(item.correct_answer_label || item.correct_answer)}</strong></div>` : ''}
+                ${item.explanation ? `<div class="small mt-1">${escapeHtml(item.explanation)}</div>` : ''}
+                <div class="small text-muted mt-2 pt-2 border-top fst-italic">
+                    <i class="bi bi-info-circle me-1"></i>Hệ thống đã ghi nhận kết quả. Bạn chỉ có thể xem lại và không thể sửa đáp án.
+                </div>
             `;
+
+            submitBtn.classList.add('d-none');
+            submitBtn.disabled = true;
+            skipBtn.classList.add('d-none');
+            continueBtn.classList.remove('d-none');
+        } else {
+            // Chế độ TRẢ LỜI LẦN ĐẦU
+            feedbackEl.className = 'alert d-none mb-0';
+            feedbackEl.innerHTML = '';
+            submitBtn.classList.remove('d-none');
+            submitBtn.disabled = false;
+            continueBtn.classList.add('d-none');
+            skipBtn.classList.toggle('d-none', item.is_required);
+
+            if (item.question_type === 'multiple_choice' && item.options) {
+                const hint = document.createElement('div');
+                hint.className = 'small text-muted mb-1';
+                hint.innerHTML = '<i class="bi bi-info-circle me-1"></i>Chọn <strong>1 đáp án đúng duy nhất</strong> (chỉ được nộp 1 lần):';
+                optionsEl.appendChild(hint);
+
+                Object.entries(item.options).forEach(([key, label]) => {
+                    const wrap = document.createElement('label');
+                    wrap.className = 'border rounded-3 p-3 d-flex align-items-center gap-3 bg-light';
+                    wrap.style.cursor = 'pointer';
+                    wrap.innerHTML = `
+                        <input class="form-check-input mt-0" type="radio" name="vi_answer" value="${escapeHtml(key)}">
+                        <span><strong class="me-1">${escapeHtml(key)}.</strong> ${escapeHtml(label)}</span>
+                    `;
+                    optionsEl.appendChild(wrap);
+                });
+            } else if (item.question_type === 'true_false') {
+                [['true', 'Đúng', 'text-success'], ['false', 'Sai', 'text-danger']].forEach(([val, label, cls]) => {
+                    const wrap = document.createElement('label');
+                    wrap.className = 'border rounded-3 p-3 d-flex align-items-center gap-3 bg-light';
+                    wrap.style.cursor = 'pointer';
+                    wrap.innerHTML = `
+                        <input class="form-check-input mt-0" type="radio" name="vi_answer" value="${val}">
+                        <span class="fw-semibold ${cls}">${label}</span>
+                    `;
+                    optionsEl.appendChild(wrap);
+                });
+            } else {
+                optionsEl.innerHTML = `
+                    <input type="text" id="viShortAnswerInput" class="form-control form-control-lg" placeholder="Nhập câu trả lời của bạn...">
+                `;
+            }
         }
 
         showViModal();
@@ -1371,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     submitBtn.addEventListener('click', function () {
-        if (!activeInteraction) return;
+        if (!activeInteraction || activeInteraction.answered) return;
         const answer = getSelectedAnswer();
         if (!answer) {
             feedbackEl.className = 'alert alert-warning mb-0';
@@ -1389,14 +1502,23 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: JSON.stringify({ answer: answer })
         })
-        .then(res => res.json())
+        .then(async res => {
+            const data = await res.json();
+            if (!res.ok && !data.already_answered) {
+                throw new Error(data.message || 'Không thể gửi câu trả lời.');
+            }
+            return data;
+        })
         .then(data => {
             activeInteraction.answered = true;
-            activeInteraction.is_correct = data.is_correct;
-            activeInteraction.selected_answer = answer;
+            activeInteraction.is_correct = Boolean(data.is_correct);
+            activeInteraction.selected_answer = data.selected_answer ?? answer;
+            activeInteraction.correct_answer = data.correct_answer ?? null;
+            activeInteraction.correct_answer_label = data.correct_answer_label ?? null;
+            activeInteraction.explanation = data.explanation ?? null;
             triggeredInSession.add(activeInteraction.id);
 
-            updateCheckpointPill(activeInteraction.id, data.is_correct);
+            updateCheckpointPill(activeInteraction.id, activeInteraction.is_correct);
             if (summaryEl && data.stats) {
                 summaryEl.textContent = `Đã trả lời: ${data.stats.answered}/${data.stats.total} · Đúng: ${data.stats.correct}`;
             }
@@ -1407,41 +1529,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 scoreBadge.className = 'badge font-mono ' + (s10 >= 8 ? 'bg-success' : (s10 >= 5 ? 'bg-warning text-dark' : 'bg-danger'));
             }
 
-            if (data.is_correct) {
-                feedbackEl.className = 'alert alert-success mb-0';
-                feedbackEl.innerHTML = `
-                    <div class="fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Chính xác!</div>
-                    ${data.explanation ? `<div class="small mt-1">${escapeHtml(data.explanation)}</div>` : ''}
-                `;
-                submitBtn.classList.add('d-none');
-                retryBtn.classList.add('d-none');
-                continueBtn.classList.remove('d-none');
-            } else {
-                feedbackEl.className = 'alert alert-danger mb-0';
-                feedbackEl.innerHTML = `
-                    <div class="fw-bold"><i class="bi bi-x-circle-fill me-1"></i>Chưa chính xác!</div>
-                    <div class="small mt-1">Đáp án đúng: <strong>${escapeHtml(data.correct_answer_label)}</strong></div>
-                    ${data.explanation ? `<div class="small mt-1">${escapeHtml(data.explanation)}</div>` : ''}
-                `;
-                submitBtn.classList.add('d-none');
-                retryBtn.classList.remove('d-none');
-                continueBtn.classList.remove('d-none');
-            }
+            // Chuyển ngay sang chế độ xem lại để khóa đáp án và không cho phép sửa lại
+            renderInteractionModal(activeInteraction);
         })
-        .catch(() => {
+        .catch(err => {
             submitBtn.disabled = false;
             feedbackEl.className = 'alert alert-danger mb-0';
-            feedbackEl.textContent = 'Không thể gửi câu trả lời. Vui lòng thử lại.';
+            feedbackEl.textContent = err.message || 'Không thể gửi câu trả lời. Vui lòng thử lại.';
         });
-    });
-
-    retryBtn.addEventListener('click', function () {
-        if (!activeInteraction) return;
-        feedbackEl.className = 'alert d-none mb-0';
-        submitBtn.classList.remove('d-none');
-        submitBtn.disabled = false;
-        retryBtn.classList.add('d-none');
-        continueBtn.classList.add('d-none');
     });
 
     function advanceOrClose() {
@@ -1548,6 +1643,18 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             if (tsInput) tsInput.value = secs;
             if (tsText) tsText.value = formatMMSS(secs);
+        });
+    });
+
+    // Chỉ tải PDF iframe khi học viên thực sự bấm "Mở xem" (tránh tải ngầm hàng loạt PDF gây chậm/nghẽn khi load trang)
+    document.querySelectorAll('.collapse').forEach(function (collapseEl) {
+        collapseEl.addEventListener('show.bs.collapse', function () {
+            collapseEl.querySelectorAll('iframe.lazy-doc-iframe[data-src]').forEach(function (iframe) {
+                if (!iframe.dataset.loaded) {
+                    iframe.src = iframe.dataset.src;
+                    iframe.dataset.loaded = '1';
+                }
+            });
         });
     });
 

@@ -1175,3 +1175,345 @@ a:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--ink-soft) 55%, transparent);
 }
+
+/* Floating AI Tutor Launcher & Popup */
+.ai-tutor-floating {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1045;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.ai-tutor-fab {
+    pointer-events: auto;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 50px;
+    padding: 0 1.15rem;
+    border: 0;
+    border-radius: 999px;
+    color: var(--on-brand, #fff);
+    background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+    box-shadow: 0 10px 28px -6px color-mix(in srgb, var(--brand-deep) 55%, transparent), 0 4px 10px rgba(0, 0, 0, 0.12);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.ai-tutor-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px -6px color-mix(in srgb, var(--brand-deep) 65%, transparent), 0 6px 14px rgba(0, 0, 0, 0.15);
+    filter: brightness(1.04);
+}
+
+.ai-tutor-fab:active {
+    transform: translateY(0);
+}
+
+.ai-tutor-fab__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.32);
+    flex-shrink: 0;
+}
+
+.ai-tutor-fab__icon-open {
+    font-size: 1.05rem;
+}
+
+.ai-tutor-fab__icon-close {
+    display: none;
+    font-size: 1rem;
+}
+
+.ai-tutor-fab.is-open .ai-tutor-fab__icon-open {
+    display: none;
+}
+
+.ai-tutor-fab.is-open .ai-tutor-fab__icon-close {
+    display: inline-block;
+}
+
+.ai-tutor-fab__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: var(--mono);
+}
+
+.ai-tutor-popup {
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    width: min(410px, calc(100vw - 32px));
+    height: min(590px, calc(100vh - 110px));
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 22px 54px -12px rgba(15, 23, 42, 0.28), 0 8px 20px -6px rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(14px) scale(0.96);
+    transform-origin: bottom right;
+    transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.2s ease, width 0.22s ease, height 0.22s ease;
+}
+
+.ai-tutor-popup.is-open {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.ai-tutor-popup.is-expanded {
+    width: min(620px, calc(100vw - 48px));
+    height: min(720px, calc(100vh - 104px));
+}
+
+.ai-tutor-popup__header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 0.9rem;
+    background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+    color: #fff;
+}
+
+.ai-tutor-popup__avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.ai-tutor-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.ai-tutor-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.26);
+}
+
+.ai-tutor-popup__sources {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--surface-muted);
+    border-bottom: 1px solid var(--line);
+    font-size: 0.74rem;
+}
+
+.ai-tutor-popup__messages {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    background: var(--surface);
+}
+
+.ai-tutor-empty-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--brand-tint);
+    color: var(--brand);
+    font-size: 1.45rem;
+}
+
+.ai-tutor-bubble {
+    max-width: 88%;
+    padding: 0.65rem 0.85rem;
+    border-radius: 14px;
+    font-size: 0.87rem;
+    overflow-wrap: anywhere;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ai-tutor-bubble--user {
+    background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+
+.ai-tutor-bubble--assistant {
+    background: var(--surface-muted);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-bottom-left-radius: 4px;
+}
+
+.ai-tutor-popup__quick {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--surface-muted);
+    border-top: 1px solid var(--line);
+    scrollbar-width: thin;
+}
+
+.ai-tutor-popup__quick .ai-quick-btn {
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.ai-tutor-popup__footer {
+    flex: 0 0 auto;
+    padding: 0.65rem 0.85rem 0.75rem;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+}
+
+.ai-tutor-img-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.55rem;
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.ai-tutor-img-preview img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+.ai-tutor-bubble__img {
+    display: block;
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 10px;
+    object-fit: contain;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.ai-tutor-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -2px;
+    background: var(--brand);
+    border-radius: 2px;
+    animation: ai-cursor-blink 0.8s steps(2, start) infinite;
+}
+
+@keyframes ai-cursor-blink {
+    to {
+        opacity: 0;
+    }
+}
+
+/* KaTeX LaTeX math formatting inside AI Tutor bubbles */
+.ai-math-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0.45rem 0;
+    padding: 0.45rem 0.65rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--surface) 75%, transparent);
+    border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+    text-align: center;
+}
+
+.ai-tutor-bubble--user .ai-math-display {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.ai-math-display .katex-display {
+    margin: 0 !important;
+}
+
+.ai-math-inline .katex {
+    font-size: 1.02em;
+}
+
+.ai-tutor-bubble--user .katex {
+    color: #fff;
+}
+
+.ai-tutor-bubble .ai-md-heading {
+    display: block;
+    font-weight: 700;
+    margin: 0.45rem 0 0.2rem;
+    color: var(--ink);
+}
+
+@media (max-width: 767.98px) {
+    .ai-tutor-floating {
+        right: 12px;
+        bottom: calc(68px + env(safe-area-inset-bottom));
+        left: 12px;
+        align-items: flex-end;
+    }
+
+    .ai-tutor-popup,
+    .ai-tutor-popup.is-expanded {
+        width: 100%;
+        height: min(68vh, 520px);
+        transform-origin: bottom center;
+    }
+
+    .ai-tutor-fab {
+        height: 46px;
+        padding: 0 1rem;
+        font-size: 0.86rem;
+    }
+}
