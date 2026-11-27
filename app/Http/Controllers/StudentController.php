@@ -6,16 +6,21 @@ use App\Models\AiTutorMessage;
 use App\Models\Assignment;
 use App\Models\Course;
 use App\Models\DocumentProgress;
+use App\Models\Enrollment;
 use App\Models\Lesson;
 use App\Models\LessonInteraction;
 use App\Models\Progress;
+use App\Models\SavedItem;
 use App\Models\Subject;
 use App\Models\User;
 use App\Models\VideoInteractionResponse;
+use App\Services\GeminiTutorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class StudentController extends Controller
@@ -78,6 +83,14 @@ class StudentController extends Controller
             ? $course->progresses->where('is_completed', true)->pluck('lesson_id')->all()
             : [];
 
+        $hasSavedTable = Schema::hasTable('saved_items');
+        $savedLessonIds = $hasSavedTable
+            ? SavedItem::where('user_id', $user->id)->where('course_id', $course->id)->whereNull('document_id')->pluck('lesson_id')->all()
+            : [];
+        $savedDocumentIds = $hasSavedTable
+            ? SavedItem::where('user_id', $user->id)->where('course_id', $course->id)->whereNotNull('document_id')->pluck('document_id')->all()
+            : [];
+
         return view('student.course-detail', [
             'course' => $course,
             'isEnrolled' => $isEnrolled,
@@ -88,7 +101,25 @@ class StudentController extends Controller
             'progressStatus' => $course->progressStatusFor($user),
             'lastLesson' => $course->lastStudiedLessonFor($user),
             'completedLessonIds' => $completedLessonIds,
+            'savedLessonIds' => $savedLessonIds,
+            'savedDocumentIds' => $savedDocumentIds,
         ]);
+    }
+
+    public function enroll(Course $course): RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        abort_unless($course->status === 'public', 403, 'Khóa học này hiện chưa mở ghi danh công khai.');
+
+        Enrollment::updateOrCreate(
+            ['user_id' => $user->id, 'course_id' => $course->id],
+            ['status' => 'active']
+        );
+
+        return redirect()
+            ->route('student.courses.show', $course)
+            ->with('status', 'Chúc mừng! Bạn đã tham gia khóa học thành công.');
     }
 
     public function leave(Course $course): RedirectResponse
@@ -115,10 +146,16 @@ class StudentController extends Controller
             ->paginate(12)
             ->withQueryString();
 
+        $enrolledCourseIds = Enrollment::where('user_id', Auth::id())
+            ->where('status', 'active')
+            ->pluck('course_id')
+            ->all();
+
         return view('student.search', [
             'courses' => $courses,
             'term' => $term,
             'subjects' => Subject::orderBy('name')->get(),
+            'enrolledCourseIds' => $enrolledCourseIds,
         ]);
     }
 
@@ -220,8 +257,12 @@ class StudentController extends Controller
 
         $aiConfigured = filled(config('services.gemini.api_key'));
         $aiContextReady = $aiConfigured
-            ? (app(\App\Services\GeminiTutorService::class)->hasFreshContext($lesson)
-                || \Illuminate\Support\Facades\Cache::has("ai_prepare_cooldown_{$lesson->id}"))
+            ? (app(GeminiTutorService::class)->hasFreshContext($lesson)
+                || Cache::has("ai_prepare_cooldown_{$lesson->id}"))
+            : false;
+
+        $isLessonSaved = Schema::hasTable('saved_items')
+            ? SavedItem::where('user_id', $user->id)->where('lesson_id', $lesson->id)->whereNull('document_id')->exists()
             : false;
 
         return view('student.learn', [
@@ -239,6 +280,7 @@ class StudentController extends Controller
             'aiMessages' => $aiMessages,
             'aiConfigured' => $aiConfigured,
             'aiContextReady' => $aiContextReady,
+            'isLessonSaved' => $isLessonSaved,
         ]);
     }
 

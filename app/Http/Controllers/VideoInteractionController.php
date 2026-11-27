@@ -43,8 +43,8 @@ class VideoInteractionController extends Controller
                 $q->where('type', 'video')
                     ->orWhere('mime_type', 'like', 'video/%');
             })
-            ->when($selectedCourseId, fn($q) => $q->where('course_id', $selectedCourseId))
-            ->when($search !== '', fn($q) => $q->where('title', 'like', "%{$search}%"))
+            ->when($selectedCourseId, fn ($q) => $q->where('course_id', $selectedCourseId))
+            ->when($search !== '', fn ($q) => $q->where('title', 'like', "%{$search}%"))
             ->latest();
 
         $videoDocuments = $videoDocsQuery->get();
@@ -53,21 +53,21 @@ class VideoInteractionController extends Controller
         $videoInteractions = VideoInteraction::with(['course:id,title', 'lesson:id,title', 'document:id,title,course_id'])
             ->withCount([
                 'responses as total_responses_count',
-                'responses as correct_responses_count' => fn($q) => $q->where('is_correct', true),
+                'responses as correct_responses_count' => fn ($q) => $q->where('is_correct', true),
             ])
             ->whereIn('course_id', $courseIds)
-            ->when($selectedCourseId, fn($q) => $q->where('course_id', $selectedCourseId))
-            ->when($questionType && array_key_exists($questionType, VideoInteraction::TYPES), fn($q) => $q->where('question_type', $questionType))
-            ->when($search !== '', fn($q) => $q->where('question', 'like', "%{$search}%"))
+            ->when($selectedCourseId, fn ($q) => $q->where('course_id', $selectedCourseId))
+            ->when($questionType && array_key_exists($questionType, VideoInteraction::TYPES), fn ($q) => $q->where('question_type', $questionType))
+            ->when($search !== '', fn ($q) => $q->where('question', 'like', "%{$search}%"))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
         $allQuestionsCount = VideoInteraction::whereIn('course_id', $courseIds)->count();
         $videosWithQuestionsCount = VideoInteraction::whereIn('course_id', $courseIds)->distinct('document_id')->count('document_id');
-        $totalResponses = VideoInteractionResponse::whereHas('interaction', fn($q) => $q->whereIn('course_id', $courseIds))->count();
+        $totalResponses = VideoInteractionResponse::whereHas('interaction', fn ($q) => $q->whereIn('course_id', $courseIds))->count();
         $correctResponses = VideoInteractionResponse::where('is_correct', true)
-            ->whereHas('interaction', fn($q) => $q->whereIn('course_id', $courseIds))
+            ->whereHas('interaction', fn ($q) => $q->whereIn('course_id', $courseIds))
             ->count();
 
         return view('video-interactions.index', [
@@ -92,9 +92,9 @@ class VideoInteractionController extends Controller
         $interactions = $document->videoInteractions()
             ->withCount([
                 'responses as total_responses_count',
-                'responses as correct_responses_count' => fn($q) => $q->where('is_correct', true),
+                'responses as correct_responses_count' => fn ($q) => $q->where('is_correct', true),
             ])
-            ->with(['responses' => fn($q) => $q->with('user:id,name,email')->latest('answered_at')->limit(5)])
+            ->with(['responses' => fn ($q) => $q->with('user:id,name,email')->latest('answered_at')->limit(5)])
             ->orderBy('timestamp_seconds')
             ->orderBy('id')
             ->get();
@@ -134,7 +134,7 @@ class VideoInteractionController extends Controller
             foreach ($rawItems as $index => $item) {
                 $prepared[] = $this->validateSingleItem(
                     is_array($item) ? $item : [],
-                    "Câu hỏi #" . ($index + 1)
+                    'Câu hỏi #'.($index + 1)
                 );
             }
 
@@ -223,7 +223,7 @@ class VideoInteractionController extends Controller
         if ($existing) {
             $totalInVideo = VideoInteraction::where('document_id', $interaction->document_id)->count();
             $userResponses = VideoInteractionResponse::where('user_id', $user->id)
-                ->whereHas('interaction', fn($q) => $q->where('document_id', $interaction->document_id))
+                ->whereHas('interaction', fn ($q) => $q->where('document_id', $interaction->document_id))
                 ->get();
 
             $answeredCount = $userResponses->count();
@@ -264,7 +264,7 @@ class VideoInteractionController extends Controller
 
         $totalInVideo = VideoInteraction::where('document_id', $interaction->document_id)->count();
         $userResponses = VideoInteractionResponse::where('user_id', $user->id)
-            ->whereHas('interaction', fn($q) => $q->where('document_id', $interaction->document_id))
+            ->whereHas('interaction', fn ($q) => $q->where('document_id', $interaction->document_id))
             ->get();
 
         $answeredCount = $userResponses->count();
@@ -330,7 +330,7 @@ class VideoInteractionController extends Controller
                 'B' => trim((string) ($validated['option_b'] ?? '')),
                 'C' => trim((string) ($validated['option_c'] ?? '')),
                 'D' => trim((string) ($validated['option_d'] ?? '')),
-            ], fn(string $v) => $v !== '');
+            ], fn (string $v) => $v !== '');
 
             if (count($options) < 2) {
                 throw ValidationException::withMessages([

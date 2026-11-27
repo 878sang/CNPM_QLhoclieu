@@ -66,7 +66,20 @@
                         </p>
                     </div>
                     <div class="col-md-3 col-lg-3 p-3 p-lg-4 border-start-md bg-light d-flex flex-column gap-2 justify-content-center h-100" style="min-height: 160px;">
-                        <a href="{{ route('student.courses.show', $course) }}" class="btn btn-primary btn-sm w-100 py-2">
+                        @php $alreadyEnrolled = in_array($course->id, $enrolledCourseIds ?? [], true); @endphp
+                        @if($alreadyEnrolled)
+                            <a href="{{ route('student.courses.learn', $course) }}" class="btn btn-success btn-sm w-100 py-2 fw-semibold">
+                                <i class="bi bi-play-circle-fill me-1"></i>Tiếp tục học
+                            </a>
+                        @else
+                            <form method="POST" action="{{ route('student.courses.enroll', $course) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-primary btn-sm w-100 py-2 fw-semibold">
+                                    <i class="bi bi-person-plus-fill me-1"></i>Tham gia khóa học
+                                </button>
+                            </form>
+                        @endif
+                        <a href="{{ route('student.courses.show', $course) }}" class="btn btn-outline-primary btn-sm w-100 py-2">
                             <i class="bi bi-eye me-1"></i>Xem chi tiết khóa học
                         </a>
                     </div>

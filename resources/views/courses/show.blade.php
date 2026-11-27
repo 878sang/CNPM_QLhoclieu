@@ -88,26 +88,60 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
         <!-- CỘT TRÁI: SIDEBAR CÂY CHƯƠNG & BÀI HỌC -->
         <div class="col-lg-4 col-xl-3 border-end bg-light d-flex flex-column" style="min-height: 720px;">
             <!-- Header Sidebar -->
-            <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white">
-                <div class="fw-bold text-dark small text-uppercase">
-                    <i class="bi bi-list-ul text-primary me-1"></i>Mục lục bài giảng
+            <div class="p-3 border-bottom bg-white">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="fw-bold text-dark small text-uppercase">
+                        <i class="bi bi-list-ul text-primary me-1"></i>Mục lục bài giảng
+                    </div>
+                    <span class="badge bg-secondary-subtle text-secondary border">
+                        {{ $allLessons->count() }} bài
+                    </span>
                 </div>
-                <span class="badge bg-secondary-subtle text-secondary border">
-                    {{ $allLessons->count() }} bài
-                </span>
+                <div class="text-muted mt-1 d-flex align-items-center justify-content-between" style="font-size: 0.75rem;">
+                    <span><i class="bi bi-grip-vertical text-primary"></i> Kéo thả hoặc bấm ↑↓ để sắp xếp</span>
+                    <span id="reorder_save_indicator" class="text-success fw-semibold d-none">
+                        <i class="bi bi-check-circle-fill me-1"></i>Đã lưu vị trí
+                    </span>
+                </div>
             </div>
 
-            <!-- Danh sách cây chương và bài học -->
-            <div class="flex-grow-1 overflow-auto p-2" style="max-height: 720px;">
+            <!-- Danh sách cây chương và bài học (Hỗ trợ kéo thả & di chuyển lên/xuống) -->
+            <div class="flex-grow-1 overflow-auto p-2"
+                 style="max-height: 720px;"
+                 id="curriculumChaptersList"
+                 data-csrf="{{ csrf_token() }}"
+                 data-reorder-chapters-url="{{ route('courses.chapters.reorder', $course) }}"
+                 data-reorder-lessons-url="{{ route('courses.lessons.reorder', $course) }}">
                 @forelse($course->chapters as $cIndex => $chapter)
-                <div class="mb-3 border rounded bg-white shadow-2xs overflow-hidden">
+                <div class="mb-3 border rounded bg-white shadow-2xs overflow-hidden curriculum-chapter-card"
+                     data-chapter-id="{{ $chapter->id }}">
                     <!-- Tiêu đề chương -->
-                    <div class="p-2 px-3 bg-light d-flex align-items-center justify-content-between border-bottom">
-                        <div class="fw-bold small text-dark d-flex align-items-center gap-1 text-truncate" title="{{ $chapter->title }}">
+                    <div class="p-2 px-2 bg-light d-flex align-items-center justify-content-between border-bottom chapter-header-bar">
+                        <div class="fw-bold small text-dark d-flex align-items-center gap-1 text-truncate me-1" title="{{ $chapter->title }}">
+                            <span class="chapter-drag-handle text-secondary px-1" style="cursor: grab;" title="Giữ chuột kéo thả để đổi vị trí chương">
+                                <i class="bi bi-grip-vertical"></i>
+                            </span>
                             <i class="bi bi-folder2-open text-warning me-1"></i>
-                            {{ $chapter->title }}
+                            <span class="text-truncate">{{ $chapter->title }}</span>
                         </div>
                         <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                            <!-- Nút di chuyển chương lên / xuống -->
+                            <form method="POST" action="{{ route('courses.chapters.move', [$course, $chapter]) }}" class="d-inline chapter-move-form">
+                                @csrf
+                                @method('PATCH')
+                                <input type="hidden" name="direction" value="up">
+                                <button type="submit" class="btn btn-sm btn-link text-secondary p-0 px-1 chapter-move-up" title="Chuyển chương lên trên" @disabled($loop->first)>
+                                    <i class="bi bi-arrow-up-short"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('courses.chapters.move', [$course, $chapter]) }}" class="d-inline chapter-move-form">
+                                @csrf
+                                @method('PATCH')
+                                <input type="hidden" name="direction" value="down">
+                                <button type="submit" class="btn btn-sm btn-link text-secondary p-0 px-1 chapter-move-down" title="Chuyển chương xuống dưới" @disabled($loop->last)>
+                                    <i class="bi bi-arrow-down-short"></i>
+                                </button>
+                            </form>
                             <button class="btn btn-sm btn-link text-secondary p-0 px-1" type="button" data-bs-toggle="collapse" data-bs-target="#editChapterCollapse{{ $chapter->id }}" title="Đổi tên chương">
                                 <i class="bi bi-pencil small"></i>
                             </button>
@@ -132,18 +166,25 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                     </div>
 
                     <!-- Danh sách bài học của chương -->
-                    <div class="list-group list-group-flush">
+                    <div class="list-group list-group-flush curriculum-lessons-list" data-chapter-id="{{ $chapter->id }}" style="min-height: 36px;">
                         @forelse($chapter->lessons as $lIndex => $lesson)
                         @php
                         $hasVideo = $lesson->documents->contains(fn ($d) => $d->isVideo());
                         $videoQuestionCount = $lesson->documents->sum(fn ($d) => $d->videoInteractions->count());
                         $isLessonActive = $currentLesson && $currentLesson->id === $lesson->id;
                         @endphp
-                        <a href="{{ route('courses.show', ['course' => $course, 'lesson_id' => $lesson->id, 'tab' => 'content']) }}"
-                            class="list-group-item list-group-item-action py-2 px-3 d-flex align-items-center justify-content-between border-0 {{ $isLessonActive ? 'bg-primary-subtle text-primary fw-bold border-start border-3 border-primary' : 'text-dark' }}">
-                            <div class="d-flex align-items-center gap-2 text-truncate me-2">
-                                <i class="bi {{ $hasVideo ? 'bi-play-btn-fill text-danger' : 'bi-file-earmark-text text-secondary' }} fs-6"></i>
-                                <span class="small text-truncate" title="{{ $lesson->title }}">{{ $lesson->title }}</span>
+                        <div class="list-group-item py-2 px-2 d-flex align-items-center justify-content-between border-0 curriculum-lesson-item {{ $isLessonActive ? 'bg-primary-subtle text-primary fw-bold border-start border-3 border-primary' : 'text-dark' }}"
+                             data-lesson-id="{{ $lesson->id }}"
+                             data-chapter-id="{{ $chapter->id }}">
+                            <div class="d-flex align-items-center gap-1 text-truncate me-1 flex-grow-1">
+                                <span class="lesson-drag-handle text-muted px-1" style="cursor: grab;" title="Giữ chuột kéo thả để đổi thứ tự hoặc chuyển sang chương khác">
+                                    <i class="bi bi-grip-vertical"></i>
+                                </span>
+                                <a href="{{ route('courses.show', ['course' => $course, 'lesson_id' => $lesson->id, 'tab' => 'content']) }}"
+                                   class="d-flex align-items-center gap-2 text-truncate text-decoration-none flex-grow-1 {{ $isLessonActive ? 'text-primary fw-bold' : 'text-dark' }}">
+                                    <i class="bi {{ $hasVideo ? 'bi-play-btn-fill text-danger' : 'bi-file-earmark-text text-secondary' }} fs-6"></i>
+                                    <span class="small text-truncate" title="{{ $lesson->title }}">{{ $lesson->title }}</span>
+                                </a>
                             </div>
                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
                                 @if($videoQuestionCount > 0)
@@ -159,11 +200,30 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                                 <span class="badge bg-light text-muted border small fw-normal">
                                     {{ $lesson->documents->count() }}
                                 </span>
+                                <!-- Nút di chuyển bài học lên / xuống -->
+                                <div class="d-inline-flex align-items-center ms-1">
+                                    <form method="POST" action="{{ route('courses.chapters.lessons.move', [$course, $chapter, $lesson]) }}" class="d-inline lesson-move-form">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="direction" value="up">
+                                        <button type="submit" class="btn btn-sm btn-link text-secondary p-0 lesson-move-up" style="line-height:1;" title="Đưa bài học lên trên" @disabled($loop->first)>
+                                            <i class="bi bi-arrow-up-short"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ route('courses.chapters.lessons.move', [$course, $chapter, $lesson]) }}" class="d-inline lesson-move-form">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="direction" value="down">
+                                        <button type="submit" class="btn btn-sm btn-link text-secondary p-0 lesson-move-down" style="line-height:1;" title="Đưa bài học xuống dưới" @disabled($loop->last)>
+                                            <i class="bi bi-arrow-down-short"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
-                        </a>
+                        </div>
                         @empty
-                        <div class="p-2 text-muted text-center small fst-italic">
-                            Chưa có bài giảng nào
+                        <div class="p-2 text-muted text-center small fst-italic empty-chapter-hint">
+                            Chưa có bài giảng nào (có thể kéo bài giảng thả vào đây)
                         </div>
                         @endforelse
                     </div>
@@ -319,6 +379,26 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                         <div class="form-text small text-muted">Chỉnh sửa tên bài giảng và nút Cập nhật sẽ tự động xuất hiện.</div>
                     </div>
                 </form>
+
+                @if($course->chapters->count() > 1)
+                <form method="POST" action="{{ route('courses.chapters.lessons.move', [$course, $currentLesson->chapter, $currentLesson]) }}" class="mt-3 pt-2 border-top d-flex flex-wrap align-items-center gap-2">
+                    @csrf
+                    @method('PATCH')
+                    <label for="move_target_chapter" class="small text-muted fw-semibold mb-0">
+                        <i class="bi bi-folder-symlink me-1 text-primary"></i>Chuyển bài giảng sang chương:
+                    </label>
+                    <select name="target_chapter_id" id="move_target_chapter" class="form-select form-select-sm w-auto">
+                        @foreach($course->chapters as $chOpt)
+                            <option value="{{ $chOpt->id }}" @selected($chOpt->id === $currentLesson->chapter_id)>
+                                {{ $chOpt->title }} {{ $chOpt->id === $currentLesson->chapter_id ? '(Hiện tại)' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-primary py-1 px-2">
+                        <i class="bi bi-arrow-left-right me-1"></i>Chuyển chương
+                    </button>
+                </form>
+                @endif
             </div>
 
             @php
@@ -713,7 +793,12 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                 </h2>
                 <p class="small text-muted mb-0">Hệ thống đồng bộ tiến độ thời gian thực giữa giảng viên và học viên: ghi nhận chính xác từng giây video đã xem và bài học hoàn thành.</p>
             </div>
-            <span class="badge bg-primary fs-6">{{ $course->enrollments->count() }} học viên</span>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{{ route(auth()->user()->hasRole('admin') ? 'admin.statistics.export' : 'teacher.statistics.export', ['course_id' => $course->id]) }}" class="btn btn-sm btn-success fw-semibold">
+                    <i class="bi bi-file-earmark-excel-fill me-1"></i>Xuất báo cáo Excel
+                </a>
+                <span class="badge bg-primary fs-6">{{ $course->enrollments->count() }} học viên</span>
+            </div>
         </div>
 
         <!-- BẢNG THỐNG KÊ TIẾN ĐỘ ĐỒNG BỘ CHI TIẾT (TÁCH RIÊNG TIẾN ĐỘ XEM & ĐIỂM TƯƠNG TÁC VIDEO) -->
@@ -935,6 +1020,9 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
                 <p class="small text-muted mb-0">Quản lý toàn bộ tài liệu đính kèm, video bài giảng và học liệu được tải lên trong khóa học này.</p>
             </div>
             <div class="d-flex gap-2">
+                <a href="{{ route(auth()->user()->hasRole('admin') ? 'admin.statistics.export' : 'teacher.statistics.export', ['course_id' => $course->id]) }}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Xuất thống kê Excel
+                </a>
                 <a href="{{ route('courses.documents.index', $course) }}" class="btn btn-primary btn-sm">
                     <i class="bi bi-cloud-arrow-up me-1"></i>Quản lý &amp; Tải lên học liệu mới
                 </a>
@@ -1421,4 +1509,192 @@ $pendingMaterialCount = $currentLesson?->documents->where('status', 'pending')->
     };
 </script>
 @endif
+
+<!-- SCRIPT KÉO THẢ (DRAG & DROP) SẮP XẾP CHƯƠNG & BÀI GIẢNG -->
+<style>
+    .curriculum-chapter-card.dragging-item,
+    .curriculum-lesson-item.dragging-item {
+        opacity: 0.48;
+        border: 2px dashed #2563eb !important;
+    }
+    .curriculum-lessons-list.drag-over-zone {
+        background-color: rgba(37, 99, 235, 0.06);
+        outline: 2px dashed rgba(37, 99, 235, 0.45);
+        outline-offset: -2px;
+    }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const chaptersContainer = document.getElementById('curriculumChaptersList');
+    if (!chaptersContainer) return;
+
+    const csrfToken = chaptersContainer.dataset.csrf;
+    const reorderChaptersUrl = chaptersContainer.dataset.reorderChaptersUrl;
+    const reorderLessonsUrl = chaptersContainer.dataset.reorderLessonsUrl;
+    const saveIndicator = document.getElementById('reorder_save_indicator');
+    let indicatorTimer = null;
+
+    function flashSaved() {
+        if (!saveIndicator) return;
+        saveIndicator.classList.remove('d-none');
+        if (indicatorTimer) clearTimeout(indicatorTimer);
+        indicatorTimer = setTimeout(() => saveIndicator.classList.add('d-none'), 2200);
+    }
+
+    function refreshMoveButtons() {
+        const chapterCards = Array.from(chaptersContainer.querySelectorAll('.curriculum-chapter-card'));
+        chapterCards.forEach((card, cIdx) => {
+            const upBtn = card.querySelector('.chapter-move-up');
+            const downBtn = card.querySelector('.chapter-move-down');
+            if (upBtn) upBtn.disabled = (cIdx === 0);
+            if (downBtn) downBtn.disabled = (cIdx === chapterCards.length - 1);
+
+            const lessonList = card.querySelector('.curriculum-lessons-list');
+            if (!lessonList) return;
+            const lessons = Array.from(lessonList.querySelectorAll('.curriculum-lesson-item'));
+            const emptyHint = lessonList.querySelector('.empty-chapter-hint');
+            if (lessons.length > 0 && emptyHint) {
+                emptyHint.remove();
+            } else if (lessons.length === 0 && !emptyHint) {
+                const hint = document.createElement('div');
+                hint.className = 'p-2 text-muted text-center small fst-italic empty-chapter-hint';
+                hint.textContent = 'Chưa có bài giảng nào (có thể kéo bài giảng thả vào đây)';
+                lessonList.appendChild(hint);
+            }
+
+            lessons.forEach((les, lIdx) => {
+                les.dataset.chapterId = card.dataset.chapterId;
+                const lUp = les.querySelector('.lesson-move-up');
+                const lDown = les.querySelector('.lesson-move-down');
+                if (lUp) lUp.disabled = (lIdx === 0);
+                if (lDown) lDown.disabled = (lIdx === lessons.length - 1);
+            });
+        });
+    }
+
+    function getDragAfterElement(container, y, selector) {
+        const elements = [...container.querySelectorAll(selector + ':not(.dragging-item)')];
+        return elements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            }
+            return closest;
+        }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+    }
+
+    let dragType = null; // 'chapter' | 'lesson'
+    let draggedEl = null;
+
+    // Cho phép kéo khi người dùng bấm vào tay nắm (grip handle)
+    chaptersContainer.addEventListener('mousedown', function (e) {
+        const chapterHandle = e.target.closest('.chapter-drag-handle');
+        const lessonHandle = e.target.closest('.lesson-drag-handle');
+
+        if (lessonHandle) {
+            const lessonItem = lessonHandle.closest('.curriculum-lesson-item');
+            if (lessonItem) lessonItem.setAttribute('draggable', 'true');
+        } else if (chapterHandle) {
+            const chapterCard = chapterHandle.closest('.curriculum-chapter-card');
+            if (chapterCard) chapterCard.setAttribute('draggable', 'true');
+        }
+    });
+
+    chaptersContainer.addEventListener('dragstart', function (e) {
+        const lessonItem = e.target.closest('.curriculum-lesson-item[draggable="true"]');
+        const chapterCard = !lessonItem ? e.target.closest('.curriculum-chapter-card[draggable="true"]') : null;
+
+        if (lessonItem) {
+            dragType = 'lesson';
+            draggedEl = lessonItem;
+            lessonItem.classList.add('dragging-item');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'lesson:' + lessonItem.dataset.lessonId);
+            e.stopPropagation();
+        } else if (chapterCard) {
+            dragType = 'chapter';
+            draggedEl = chapterCard;
+            chapterCard.classList.add('dragging-item');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'chapter:' + chapterCard.dataset.chapterId);
+        }
+    });
+
+    chaptersContainer.addEventListener('dragover', function (e) {
+        if (!draggedEl) return;
+        e.preventDefault();
+
+        if (dragType === 'chapter') {
+            const afterElement = getDragAfterElement(chaptersContainer, e.clientY, '.curriculum-chapter-card');
+            if (!afterElement) {
+                chaptersContainer.appendChild(draggedEl);
+            } else if (afterElement !== draggedEl) {
+                chaptersContainer.insertBefore(draggedEl, afterElement);
+            }
+        } else if (dragType === 'lesson') {
+            const targetList = e.target.closest('.curriculum-lessons-list')
+                || e.target.closest('.curriculum-chapter-card')?.querySelector('.curriculum-lessons-list');
+            if (!targetList) return;
+
+            chaptersContainer.querySelectorAll('.curriculum-lessons-list').forEach(l => l.classList.remove('drag-over-zone'));
+            targetList.classList.add('drag-over-zone');
+
+            const afterLesson = getDragAfterElement(targetList, e.clientY, '.curriculum-lesson-item');
+            if (!afterLesson) {
+                targetList.appendChild(draggedEl);
+            } else if (afterLesson !== draggedEl) {
+                targetList.insertBefore(draggedEl, afterLesson);
+            }
+        }
+    });
+
+    chaptersContainer.addEventListener('dragend', function () {
+        if (!draggedEl) return;
+
+        const currentType = dragType;
+        draggedEl.classList.remove('dragging-item');
+        draggedEl.removeAttribute('draggable');
+        chaptersContainer.querySelectorAll('.curriculum-lessons-list').forEach(l => l.classList.remove('drag-over-zone'));
+        refreshMoveButtons();
+
+        if (currentType === 'chapter' && reorderChaptersUrl) {
+            const chapterIds = Array.from(chaptersContainer.querySelectorAll('.curriculum-chapter-card'))
+                .map(el => parseInt(el.dataset.chapterId, 10));
+
+            fetch(reorderChaptersUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ chapter_ids: chapterIds })
+            }).then(res => {
+                if (res.ok) flashSaved();
+            }).catch(() => {});
+        } else if (currentType === 'lesson' && reorderLessonsUrl) {
+            const chaptersPayload = Array.from(chaptersContainer.querySelectorAll('.curriculum-chapter-card')).map(card => ({
+                chapter_id: parseInt(card.dataset.chapterId, 10),
+                lesson_ids: Array.from(card.querySelectorAll('.curriculum-lesson-item')).map(l => parseInt(l.dataset.lessonId, 10))
+            }));
+
+            fetch(reorderLessonsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ chapters: chaptersPayload })
+            }).then(res => {
+                if (res.ok) flashSaved();
+            }).catch(() => {});
+        }
+
+        draggedEl = null;
+        dragType = null;
+    });
+});
+</script>
 @endsection

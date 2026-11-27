@@ -6,9 +6,11 @@ use App\Models\AppNotification;
 use App\Models\Chapter;
 use App\Models\Course;
 use App\Models\Lesson;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class LessonController extends Controller
 {
@@ -73,6 +75,155 @@ class LessonController extends Controller
         }
 
         return redirect()->back()->with('status', 'Đã cập nhật bài học thành công.');
+    }
+
+    /**
+     * Kéo thả sắp xếp thứ tự bài học (hỗ trợ sắp xếp trong 1 chương hoặc kéo bài học sang chương khác).
+     * Không thay đổi trạng thái duyệt (published/pending/draft) của bài học.
+     */
+    public function reorder(Request $request, Course $course): JsonResponse|RedirectResponse
+    {
+        $this->authorize('update', $course);
+
+        $validated = $request->validate([
+            'chapter_id' => ['nullable', 'integer'],
+            'lesson_ids' => ['nullable', 'array'],
+            'lesson_ids.*' => ['integer'],
+            'chapters' => ['nullable', 'array'],
+            'chapters.*.chapter_id' => ['required_with:chapters', 'integer'],
+            'chapters.*.lesson_ids' => ['present', 'array'],
+            'chapters.*.lesson_ids.*' => ['integer'],
+        ]);
+
+        $validChapterIds = $course->chapters()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $validLessonIds = $course->lessons()->pluck('lessons.id')->map(fn ($id) => (int) $id)->all();
+
+        $groups = [];
+        if (! empty($validated['chapters'])) {
+            foreach ($validated['chapters'] as $group) {
+                $cid = (int) $group['chapter_id'];
+                if (in_array($cid, $validChapterIds, true)) {
+                    $groups[$cid] = array_values(array_intersect(
+                        array_unique(array_map('intval', $group['lesson_ids'] ?? [])),
+                        $validLessonIds
+                    ));
+                }
+            }
+        } elseif (! empty($validated['chapter_id']) && isset($validated['lesson_ids'])) {
+            $cid = (int) $validated['chapter_id'];
+            abort_unless(in_array($cid, $validChapterIds, true), 404);
+            $groups[$cid] = array_values(array_intersect(
+                array_unique(array_map('intval', $validated['lesson_ids'])),
+                $validLessonIds
+            ));
+        } else {
+            abort(422, 'Dữ liệu sắp xếp bài học không hợp lệ.');
+        }
+
+        DB::transaction(function () use ($groups): void {
+            // Đảm bảo một bài học chỉ xuất hiện ở chương cuối cùng được chỉ định nếu gửi trùng
+            $assignedLessons = [];
+            foreach ($groups as $chapterId => $lessonIds) {
+                $pos = 1;
+                foreach ($lessonIds as $lessonId) {
+                    if (isset($assignedLessons[$lessonId])) {
+                        continue;
+                    }
+                    $assignedLessons[$lessonId] = true;
+
+                    Lesson::where('id', $lessonId)->update([
+                        'chapter_id' => $chapterId,
+                        'position' => $pos++,
+                    ]);
+                }
+            }
+        });
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã cập nhật thứ tự bài giảng.',
+            ]);
+        }
+
+        return redirect()->back()->with('status', 'Đã cập nhật thứ tự bài giảng.');
+    }
+
+    /**
+     * Di chuyển bài học lên/xuống trong chương hoặc chuyển sang một chương khác của khóa học.
+     */
+    public function move(Request $request, Course $course, Chapter $chapter, Lesson $lesson): JsonResponse|RedirectResponse
+    {
+        $this->authorize('update', $course);
+        abort_unless($chapter->course_id === $course->id, 404);
+        abort_unless($lesson->chapter_id === $chapter->id, 404);
+
+        $validated = $request->validate([
+            'direction' => ['nullable', 'string', 'in:up,down'],
+            'target_chapter_id' => ['nullable', 'integer'],
+        ]);
+
+        if (! empty($validated['target_chapter_id']) && (int) $validated['target_chapter_id'] !== $chapter->id) {
+            $targetChapter = $course->chapters()->findOrFail((int) $validated['target_chapter_id']);
+
+            DB::transaction(function () use ($chapter, $targetChapter, $lesson): void {
+                $nextPos = ((int) $targetChapter->lessons()->max('position')) + 1;
+                $lesson->update([
+                    'chapter_id' => $targetChapter->id,
+                    'position' => $nextPos,
+                ]);
+
+                // Chuẩn hóa lại thứ tự chương cũ
+                $remaining = $chapter->lessons()->orderBy('position')->orderBy('id')->get()->values();
+                foreach ($remaining as $idx => $item) {
+                    if ((int) $item->position !== $idx + 1) {
+                        $item->update(['position' => $idx + 1]);
+                    }
+                }
+            });
+
+            $msg = "Đã chuyển bài giảng sang chương \"{$targetChapter->title}\".";
+        } else {
+            $direction = $validated['direction'] ?? 'down';
+            $lessons = $chapter->lessons()
+                ->orderBy('position')
+                ->orderBy('id')
+                ->get()
+                ->values();
+
+            $currentIndex = $lessons->search(fn (Lesson $item) => $item->id === $lesson->id);
+            if ($currentIndex !== false) {
+                $swapIndex = $direction === 'up' ? $currentIndex - 1 : $currentIndex + 1;
+                if ($swapIndex >= 0 && $swapIndex < $lessons->count()) {
+                    $temp = $lessons[$currentIndex];
+                    $lessons[$currentIndex] = $lessons[$swapIndex];
+                    $lessons[$swapIndex] = $temp;
+                }
+
+                DB::transaction(function () use ($lessons): void {
+                    foreach ($lessons->values() as $idx => $les) {
+                        if ((int) $les->position !== $idx + 1) {
+                            $les->update(['position' => $idx + 1]);
+                        }
+                    }
+                });
+            }
+
+            $msg = 'Đã di chuyển vị trí bài giảng.';
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+            ]);
+        }
+
+        return redirect()->route('courses.show', [
+            'course' => $course,
+            'lesson_id' => $lesson->id,
+            'tab' => 'content',
+        ])->with('status', $msg);
     }
 
     public function approve(Lesson $lesson): RedirectResponse

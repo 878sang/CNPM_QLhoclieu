@@ -140,6 +140,9 @@
                                 <span class="badge bg-danger rounded-pill">{{ $unreadNotificationsCount }}</span>
                             @endif
                         </a>
+                        <a class="nav-link {{ request()->routeIs('admin.statistics') ? 'active' : '' }}" href="{{ route('admin.statistics') }}">
+                            <i class="bi bi-bar-chart me-2"></i>Thống kê & Báo cáo
+                        </a>
                     @else
                         <a class="nav-link {{ request()->routeIs('teacher.dashboard', 'courses.*') && !request()->routeIs('teacher.materials.*') ? 'active' : '' }}" href="{{ route('teacher.dashboard') }}">
                             <i class="bi bi-journal-text me-2"></i>Khóa học của tôi
@@ -160,7 +163,7 @@
                             @endif
                         </a>
                         <a class="nav-link {{ request()->routeIs('teacher.statistics') ? 'active' : '' }}" href="{{ route('teacher.statistics') }}">
-                            <i class="bi bi-bar-chart me-2"></i>Thống kê
+                            <i class="bi bi-bar-chart me-2"></i>Thống kê & Báo cáo
                         </a>
                     @endif
 
@@ -287,13 +290,14 @@
                         <a class="nav-link text-white" href="{{ route('admin.documents.index') }}">Tài liệu</a>
                         <a class="nav-link text-white" href="{{ route('interactions.index') }}">Hỏi đáp & Thảo luận</a>
                         <a class="nav-link text-white" href="{{ route('notifications.index') }}">Thông báo</a>
+                        <a class="nav-link text-white" href="{{ route('admin.statistics') }}">Thống kê & Báo cáo</a>
                     @else
                         <a class="nav-link text-white" href="{{ route('teacher.dashboard') }}">Khóa học của tôi</a>
                         <a class="nav-link text-white" href="{{ route('teacher.materials.index') }}">Tài liệu</a>
                         <a class="nav-link text-white" href="{{ route('teacher.students') }}">Học viên</a>
                         <a class="nav-link text-white" href="{{ route('interactions.index') }}">Hỏi đáp & Thảo luận</a>
                         <a class="nav-link text-white" href="{{ route('notifications.index') }}">Thông báo</a>
-                        <a class="nav-link text-white" href="{{ route('teacher.statistics') }}">Thống kê</a>
+                        <a class="nav-link text-white" href="{{ route('teacher.statistics') }}">Thống kê & Báo cáo</a>
                     @endif
                 </nav>
             </div>

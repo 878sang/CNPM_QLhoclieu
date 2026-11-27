@@ -138,9 +138,6 @@ class InteractionController extends Controller
             'status' => LessonInteraction::STATUS_OPEN,
         ]);
 
-        // Gửi thông báo tự động:
-        // - Khi có phản hồi mới: báo cho tác giả bài viết gốc
-        // - Khi học viên đặt "Câu hỏi cho giảng viên": báo ngay cho giảng viên
         if ($parent && $parent->user_id !== $user->id) {
             AppNotification::notifyUsers(
                 [$parent->user_id],

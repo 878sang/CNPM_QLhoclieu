@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\RejectDocumentRequest;
 use App\Models\AppNotification;
-use App\Models\Document;
 use App\Models\Assignment;
+use App\Models\Document;
 use App\Models\Lesson;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

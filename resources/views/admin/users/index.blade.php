@@ -38,6 +38,7 @@
                     <th class="d-none d-md-table-cell">Username / Email</th>
                     <th>Vai trò</th>
                     <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
                 </tr>
             </thead>
             <tbody>
@@ -51,16 +52,43 @@
                             <div>{{ $user->username }}</div>
                             <div class="small text-muted">{{ $user->email }}</div>
                         </td>
-                        <td><x-badge tone="primary">{{ $user->role?->display_name }}</x-badge></td>
+                        <td>
+                            @if($user->id === auth()->id())
+                                <x-badge tone="primary">{{ $user->role?->display_name }}</x-badge>
+                            @else
+                                <form method="POST" action="{{ route('admin.users.update-role', $user) }}" class="d-inline-flex align-items-center gap-1">
+                                    @csrf
+                                    @method('PATCH')
+                                    <select name="role_id" class="form-select form-select-sm w-auto" onchange="this.form.submit()" aria-label="Đổi vai trò">
+                                        @foreach ($roles as $role)
+                                            <option value="{{ $role->id }}" @selected($user->role_id === $role->id)>{{ $role->display_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                            @endif
+                        </td>
                         <td>
                             <x-badge :tone="$user->status === 'active' ? 'success' : 'danger'">
                                 {{ $user->status === 'active' ? 'Đang hoạt động' : 'Đã khóa' }}
                             </x-badge>
                         </td>
+                        <td class="text-end">
+                            @if($user->id === auth()->id())
+                                <span class="small text-muted fst-italic">Tài khoản hiện tại</span>
+                            @else
+                                <form method="POST" action="{{ route('admin.users.toggle-status', $user) }}" class="d-inline">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit" class="btn btn-sm {{ $user->status === 'active' ? 'btn-outline-danger' : 'btn-outline-success' }}">
+                                        <i class="bi {{ $user->status === 'active' ? 'bi-lock-fill' : 'bi-unlock-fill' }} me-1"></i>{{ $user->status === 'active' ? 'Khóa TK' : 'Mở khóa' }}
+                                    </button>
+                                </form>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4">
+                        <td colspan="5">
                             <x-empty-state
                                 title="Chưa có tài khoản"
                                 message="Hãy cấp tài khoản đầu tiên cho hệ thống."

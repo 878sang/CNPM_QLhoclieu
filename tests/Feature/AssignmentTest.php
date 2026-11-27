@@ -86,7 +86,7 @@ class AssignmentTest extends TestCase
             'title' => 'Bài tập giới hạn',
             'type' => 'text',
             'question_count' => 5,
-            'status' => 'published',
+            'status' => 'pending',
         ]);
     }
 
@@ -304,8 +304,16 @@ class AssignmentTest extends TestCase
         $assignment = Assignment::where('title', 'Đề hỗn hợp Trắc nghiệm và Tự luận số')->first();
         $this->assertNotNull($assignment);
         $this->assertSame('mixed', $assignment->type);
+        $this->assertSame('pending', $assignment->status);
         $this->assertTrue($assignment->isMultipleChoiceQuestion(1));
         $this->assertFalse($assignment->isMultipleChoiceQuestion(3));
+
+        // Admin phê duyệt bài tập trước khi học viên làm bài
+        $adminRole = \App\Models\Role::firstOrCreate(['name' => 'admin'], ['display_name' => 'Quản trị viên']);
+        $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => 'active']);
+        $this->actingAs($admin)
+            ->post(route('admin.assignments.approve', $assignment))
+            ->assertRedirect();
 
         // Học viên vào làm bài tập hỗn hợp
         $this->actingAs($this->student)
@@ -355,7 +363,7 @@ class AssignmentTest extends TestCase
             'course_id' => $this->course->id,
             'title' => 'Bài tập tự luận nộp file PDF',
             'submission_mode' => 'file',
-            'status' => 'published',
+            'status' => 'pending',
         ]);
 
         $assignment = Assignment::where('title', 'Bài tập tự luận nộp file PDF')->first();

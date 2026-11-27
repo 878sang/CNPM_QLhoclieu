@@ -110,7 +110,15 @@
                         </form>
                     </div>
                 @else
-                    <div class="alert alert-info mt-4 mb-0 small">Bạn chưa tham gia khóa học này.</div>
+                    <div class="alert alert-info mt-4 mb-3 small">Bạn chưa ghi danh tham gia khóa học này.</div>
+                    @if($course->status === 'public')
+                        <form method="POST" action="{{ route('student.courses.enroll', $course) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                                <i class="bi bi-person-plus-fill me-1"></i>Tham gia khóa học ngay
+                            </button>
+                        </form>
+                    @endif
                 @endif
             </x-card>
         </div>
@@ -168,9 +176,19 @@
                                                     </div>
                                                 </div>
                                                 @if($isEnrolled)
-                                                    <a href="{{ route('student.courses.learn', [$course, $lesson->id]) }}" class="btn btn-sm btn-outline-primary">
-                                                        <i class="bi bi-play me-1"></i>Học bài này
-                                                    </a>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        @php $isSavedLes = in_array($lesson->id, $savedLessonIds ?? [], true); @endphp
+                                                        <form method="POST" action="{{ route('student.saved.toggle') }}" class="d-inline">
+                                                            @csrf
+                                                            <input type="hidden" name="lesson_id" value="{{ $lesson->id }}">
+                                                            <button type="submit" class="btn btn-sm {{ $isSavedLes ? 'btn-warning text-dark' : 'btn-outline-secondary' }}" title="{{ $isSavedLes ? 'Bỏ lưu bài học' : 'Lưu bài học để ôn tập' }}">
+                                                                <i class="bi {{ $isSavedLes ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
+                                                            </button>
+                                                        </form>
+                                                        <a href="{{ route('student.courses.learn', [$course, $lesson->id]) }}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="bi bi-play me-1"></i>Học bài này
+                                                        </a>
+                                                    </div>
                                                 @endif
                                             </li>
                                         @endforeach

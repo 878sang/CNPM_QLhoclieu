@@ -21,7 +21,7 @@ return new class extends Migration
                 Schema::table($tableName, function (Blueprint $table) use ($columns, $indexName): void {
                     $table->index($columns, $indexName);
                 });
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Bỏ qua nếu index đã tồn tại
             }
         };
@@ -44,7 +44,7 @@ return new class extends Migration
                 Schema::table($tableName, function (Blueprint $table) use ($indexName): void {
                     $table->dropIndex($indexName);
                 });
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         };
 

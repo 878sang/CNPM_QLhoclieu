@@ -79,4 +79,39 @@ class AdminController extends Controller
 
         return redirect()->route('admin.users.index')->with('status', 'Tài khoản đã được cấp thành công.');
     }
+
+    public function toggleUserStatus(User $user): RedirectResponse
+    {
+        $this->authorize('update', $user);
+
+        if ($user->id === auth()->id()) {
+            return back()->withErrors(['status' => 'Bạn không thể tự khóa tài khoản quản trị của chính mình.']);
+        }
+
+        $newStatus = $user->status === 'active' ? 'locked' : 'active';
+        $user->update(['status' => $newStatus]);
+
+        $msg = $newStatus === 'locked'
+            ? "Đã khóa tài khoản \"{$user->name}\"."
+            : "Đã mở khóa tài khoản \"{$user->name}\".";
+
+        return back()->with('status', $msg);
+    }
+
+    public function updateUserRole(Request $request, User $user): RedirectResponse
+    {
+        $this->authorize('update', $user);
+
+        if ($user->id === auth()->id()) {
+            return back()->withErrors(['role_id' => 'Bạn không thể tự hạ quyền tài khoản quản trị của chính mình.']);
+        }
+
+        $validated = $request->validate([
+            'role_id' => ['required', 'integer', 'exists:roles,id'],
+        ]);
+
+        $user->update(['role_id' => (int) $validated['role_id']]);
+
+        return back()->with('status', "Đã cập nhật vai trò cho tài khoản \"{$user->name}\".");
+    }
 }

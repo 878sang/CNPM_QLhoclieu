@@ -73,7 +73,16 @@
                         </div>
                         <h2 class="h4 mb-0 fw-bold text-dark">{{ $currentLesson->title }}</h2>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        @if(auth()->user()->hasRole('student'))
+                            <form method="POST" action="{{ route('student.saved.toggle') }}" class="d-inline">
+                                @csrf
+                                <input type="hidden" name="lesson_id" value="{{ $currentLesson->id }}">
+                                <button type="submit" class="btn btn-sm {{ ($isLessonSaved ?? false) ? 'btn-warning text-dark fw-semibold' : 'btn-outline-secondary' }}" title="{{ ($isLessonSaved ?? false) ? 'Bỏ lưu bài giảng này' : 'Lưu bài giảng vào mục Đã lưu' }}">
+                                    <i class="bi {{ ($isLessonSaved ?? false) ? 'bi-bookmark-fill' : 'bi-bookmark' }} me-1"></i>{{ ($isLessonSaved ?? false) ? 'Đã lưu' : 'Lưu bài học' }}
+                                </button>
+                            </form>
+                        @endif
                         <span id="lesson_status_badge" class="badge {{ $isCurrentLessonCompleted ? 'bg-success' : ($lessonPercentage > 0 ? 'bg-primary' : 'bg-secondary') }} p-2">
                             <i class="bi {{ $isCurrentLessonCompleted ? 'bi-check-circle-fill' : ($lessonPercentage > 0 ? 'bi-play-circle' : 'bi-clock-history') }} me-1"></i>
                             <span id="lesson_status_text">

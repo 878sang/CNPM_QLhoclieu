@@ -11,6 +11,7 @@ use App\Models\Lesson;
 use App\Models\Role;
 use App\Models\Subject;
 use App\Models\User;
+use App\Services\GeminiTutorService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -339,7 +340,7 @@ class AiTutorTest extends TestCase
         config()->set('services.gemini.model', 'gemini-4-hydrogen');
         config()->set('services.gemini.fast_model', 'gemini-3.5-flash-lite');
 
-        $service = app(\App\Services\GeminiTutorService::class);
+        $service = app(GeminiTutorService::class);
         $this->lesson->forceFill([
             'ai_context_text' => 'Mục lục: 00:40 Định nghĩa đạo hàm.',
             'ai_context_hash' => $service->computeLessonHash($this->lesson),
@@ -468,7 +469,7 @@ class AiTutorTest extends TestCase
         config()->set('services.gemini.model', 'gemini-3.1-flash-lite');
         config()->set('services.gemini.fast_model', 'gemini-3.1-flash-lite');
 
-        $service = app(\App\Services\GeminiTutorService::class);
+        $service = app(GeminiTutorService::class);
         $this->lesson->forceFill([
             'ai_context_text' => 'Ghi chú video: 01:00 Khái niệm đạo hàm.',
             'ai_context_hash' => $service->computeLessonHash($this->lesson),

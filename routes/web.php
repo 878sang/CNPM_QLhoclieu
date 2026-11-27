@@ -14,6 +14,8 @@ use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\InteractionController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SavedItemController;
+use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SubmissionController;
@@ -44,6 +46,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/tai-khoan', [AdminController::class, 'users'])->name('users.index');
         Route::get('/tai-khoan/tao-moi', [AdminController::class, 'createUser'])->name('users.create');
         Route::post('/tai-khoan', [AdminController::class, 'storeUser'])->name('users.store');
+        Route::patch('/tai-khoan/{user}/trang-thai', [AdminController::class, 'toggleUserStatus'])->name('users.toggle-status');
+        Route::patch('/tai-khoan/{user}/vai-tro', [AdminController::class, 'updateUserRole'])->name('users.update-role');
         Route::resource('mon-hoc', SubjectController::class)->parameters(['mon-hoc' => 'subject'])->except(['show'])->names('subjects');
         Route::get('/tai-lieu', [DocumentReviewController::class, 'index'])->name('documents.index');
         Route::post('/tai-lieu', [DocumentController::class, 'adminStore'])->name('documents.store');
@@ -53,6 +57,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/bai-tap/{assignment}/tu-choi', [DocumentReviewController::class, 'rejectAssignment'])->name('assignments.reject');
         Route::post('/bai-hoc/{lesson}/duyet', [LessonController::class, 'approve'])->name('lessons.approve');
         Route::post('/bai-hoc/{lesson}/tu-choi', [LessonController::class, 'reject'])->name('lessons.reject');
+        // Thống kê & Xuất báo cáo Excel toàn hệ thống (TS5-01, TS5-02)
+        Route::get('/thong-ke', [StatisticsController::class, 'index'])->name('statistics');
+        Route::get('/thong-ke/xuat-excel', [StatisticsController::class, 'exportExcel'])->name('statistics.export');
     });
 
     Route::get('/quan-ly-khoa-hoc', [CourseController::class, 'index'])->middleware('role:teacher')->name('teacher.dashboard');
@@ -61,7 +68,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/tai-lieu', [DocumentController::class, 'teacherIndex'])->name('index');
         Route::post('/tai-lieu', [DocumentController::class, 'teacherStore'])->name('store');
     });
-    Route::get('/thong-ke', fn () => view('placeholder', ['title' => 'Thống kê']))->middleware('role:teacher')->name('teacher.statistics');
+    // Thống kê & Xuất báo cáo Excel của giảng viên (TS5-01, TS5-02)
+    Route::middleware('role:teacher')->group(function () {
+        Route::get('/thong-ke', [StatisticsController::class, 'index'])->name('teacher.statistics');
+        Route::get('/thong-ke/xuat-excel', [StatisticsController::class, 'exportExcel'])->name('teacher.statistics.export');
+    });
 
     Route::middleware('role:admin,teacher')->prefix('khoa-hoc')->name('courses.')->group(function () {
         Route::get('/', [CourseController::class, 'index'])->name('index');
@@ -77,12 +88,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/{course}/hoc-vien', [EnrollmentController::class, 'store'])->name('students.store');
         Route::delete('/{course}/hoc-vien/{enrollment}', [EnrollmentController::class, 'destroy'])->scopeBindings()->name('students.destroy');
 
-        // Chapters & Lessons (TS2-02, TS2-03)
+        // Chapters & Lessons + Sắp xếp / Kéo thả di chuyển vị trí (TS2-02, TS2-03, Sprint 5)
         Route::post('/{course}/chuong', [ChapterController::class, 'store'])->name('chapters.store');
+        Route::post('/{course}/chuong/sap-xep', [ChapterController::class, 'reorder'])->name('chapters.reorder');
+        Route::patch('/{course}/chuong/{chapter}/di-chuyen', [ChapterController::class, 'move'])->name('chapters.move');
         Route::put('/{course}/chuong/{chapter}', [ChapterController::class, 'update'])->name('chapters.update');
         Route::delete('/{course}/chuong/{chapter}', [ChapterController::class, 'destroy'])->name('chapters.destroy');
 
+        Route::post('/{course}/bai-hoc/sap-xep', [LessonController::class, 'reorder'])->name('lessons.reorder');
         Route::post('/{course}/chuong/{chapter}/bai-hoc', [LessonController::class, 'store'])->name('chapters.lessons.store');
+        Route::patch('/{course}/chuong/{chapter}/bai-hoc/{lesson}/di-chuyen', [LessonController::class, 'move'])->name('chapters.lessons.move');
         Route::put('/{course}/chuong/{chapter}/bai-hoc/{lesson}', [LessonController::class, 'update'])->name('chapters.lessons.update');
         Route::delete('/{course}/chuong/{chapter}/bai-hoc/{lesson}', [LessonController::class, 'destroy'])->name('chapters.lessons.destroy');
 
@@ -128,6 +143,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [StudentController::class, 'dashboard'])->name('dashboard');
         Route::get('/khoa-hoc', [StudentController::class, 'courses'])->name('courses');
         Route::get('/khoa-hoc/{course}', [StudentController::class, 'show'])->name('courses.show');
+        Route::post('/khoa-hoc/{course}/tham-gia', [StudentController::class, 'enroll'])->name('courses.enroll');
         Route::get('/khoa-hoc/{course}/hoc/{lesson?}', [StudentController::class, 'learn'])->name('courses.learn');
         Route::post('/khoa-hoc/{course}/bai-hoc/{lesson}/hoan-thanh', [StudentController::class, 'toggleLessonProgress'])->name('lessons.toggle');
         Route::post('/khoa-hoc/{course}/bai-hoc/{lesson}/vi-tri-video', [StudentController::class, 'updateVideoPosition'])->name('lessons.video_position');
@@ -135,7 +151,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/tien-do', [StudentController::class, 'progress'])->name('progress');
         Route::post('/tai-lieu/{document}/tien-do', [DocumentProgressController::class, 'store'])->name('documents.progress');
         Route::get('/tim-hoc-lieu', [StudentController::class, 'search'])->name('search');
-        Route::get('/da-luu', fn () => view('placeholder', ['title' => 'Đã lưu']))->name('saved');
+        // Mục Đã lưu (Bookmarks bài học & học liệu)
+        Route::get('/da-luu', [SavedItemController::class, 'index'])->name('saved');
+        Route::post('/da-luu/toggle', [SavedItemController::class, 'toggle'])->name('saved.toggle');
+        Route::delete('/da-luu/{savedItem}', [SavedItemController::class, 'destroy'])->name('saved.destroy');
         // Assignment – học viên (TS3-09)
         Route::get('/khoa-hoc/{course}/bai-tap', [StudentController::class, 'assignments'])->name('courses.assignments');
         Route::get('/khoa-hoc/{course}/bai-tap/{assignment}/lam-bai', [StudentController::class, 'doAssignment'])->name('assignments.do');
